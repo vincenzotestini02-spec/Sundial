@@ -24,13 +24,19 @@ def to_hourly(prices: pd.Series) -> pd.Series:
     return s.resample("h").mean().dropna()
 
 
-def fetch_day_ahead(zone: str, start: str, end: str, token: str | None = None) -> pd.Series:
+def make_client(token: str | None = None):
+    """Return an EntsoePandasClient; raise RuntimeError if no token is available."""
     token = token or os.environ.get("ENTSOE_TOKEN")
     if not token:
         raise RuntimeError("ENTSOE_TOKEN not set: see docs/data-sources.md for how to request one")
     from entsoe import EntsoePandasClient  # imported lazily so tests run without it
 
-    client = EntsoePandasClient(api_key=token)
+    return EntsoePandasClient(api_key=token)
+
+
+def fetch_day_ahead(zone: str, start: str, end: str, token: str | None = None) -> pd.Series:
+    """Return hourly UTC day-ahead prices (EUR/MWh) for a zone between start and end."""
+    client = make_client(token)
     raw = client.query_day_ahead_prices(
         ZONES[zone], start=pd.Timestamp(start, tz="Europe/Rome"), end=pd.Timestamp(end, tz="Europe/Rome")
     )

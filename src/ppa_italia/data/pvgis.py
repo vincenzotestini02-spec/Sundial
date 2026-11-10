@@ -11,6 +11,10 @@ import requests
 PVGIS_URL = "https://re.jrc.ec.europa.eu/api/v5_3/seriescalc"
 
 
+class PvgisError(Exception):
+    """Raised when PVGIS cannot be reached or returns an unusable response."""
+
+
 def fetch_hourly_pv(
     lat: float,
     lon: float,
@@ -21,6 +25,8 @@ def fetch_hourly_pv(
     timeout: int = 120,
 ) -> tuple[pd.Series, dict]:
     """Return (hourly production in MWh indexed by UTC hour, PVGIS input metadata).
+
+    Raises PvgisError on HTTP error, timeout, or a response without ``outputs.hourly``.
 
     Uses PVGIS-optimised fixed tilt and azimuth. PVGIS timestamps look like
     ``20230101:0010`` (UTC, minute = sun-position offset); they are floored to the hour.
@@ -36,10 +42,13 @@ def fetch_hourly_pv(
         "endyear": end_year,
         "outputformat": "json",
     }
-    r = requests.get(PVGIS_URL, params=params, timeout=timeout)
-    r.raise_for_status()
-    data = r.json()
-    return parse_hourly(data["outputs"]["hourly"]), data["inputs"]
+    try:
+        r = requests.get(PVGIS_URL, params=params, timeout=timeout)
+        r.raise_for_status()
+        data = r.json()
+        return parse_hourly(data["outputs"]["hourly"]), data["inputs"]
+    except (requests.RequestException, ValueError, KeyError) as err:
+        raise PvgisError(f"PVGIS request failed or returned no hourly data: {err!r}") from err
 
 
 def parse_hourly(hourly: list[dict]) -> pd.Series:
