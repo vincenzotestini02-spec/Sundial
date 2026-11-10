@@ -4,7 +4,7 @@ A commercial toolkit for valuing Italian renewable assets and preparing customer
 
 > **Status (2026-11-10):** depth foundations built and tested — capture-rate engine, real PVGIS solar profile for the Puglia park (P50 29,335 MWh/yr, 1,468 kWh/kWp), PPA pricing formula, tender scoring with robustness check. Zonal prices wait on the ENTSO-E API token. See [ROADMAP.md](ROADMAP.md) and the [ambition plan](docs/ambition-plan.md).
 >
-> **Quick start:** `pip install -r requirements.txt` · `python -m pytest` · `python scripts/build_solar_profile.py` · set `ENTSOE_TOKEN` for prices.
+> **Quick start:** `pip install -e ".[dev]"` · `python -m pytest` · `python scripts/build_puglia_profile.py` · set `ENTSOE_TOKEN` for prices.
 >
 > **Disclaimer:** all models are simplified and indicative, built on public data for learning and demonstration. They are not trading advice and do not represent any company's actual pricing.
 

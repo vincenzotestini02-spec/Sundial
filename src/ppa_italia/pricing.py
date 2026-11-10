@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from src.value_engine.capture import yearly_summary
+from ppa_italia.value import yearly_summary
 
 
 @dataclass(frozen=True)
@@ -33,25 +33,6 @@ class PapAssumptions:
 def fair_pap_price(expected_capture: float, a: PapAssumptions) -> float:
     goo = a.goo_value if a.goo_transferred else 0.0
     return expected_capture - a.imbalance_cost - a.risk_discount - a.margin + goo
-
-
-def capture_distribution(prices: pd.Series, profiles: dict[int, pd.Series]) -> pd.DataFrame:
-    """Capture price for every (weather year x price year) pair.
-
-    Each weather-year profile is re-stamped onto each price year by hour-of-year, so the
-    spread shows how much weather alone moves the capture price. Limitation (documented):
-    pairing different years breaks the real same-hour link between weather and price,
-    so it understates cannibalisation in sunny years.
-    """
-    rows = []
-    for p_year, p in prices.groupby(prices.index.year):
-        p = p.reset_index(drop=True)
-        for w_year, g in profiles.items():
-            g = g.reset_index(drop=True).iloc[: len(p)]
-            pp = p.iloc[: len(g)]
-            rows.append({"price_year": p_year, "weather_year": w_year,
-                         "capture_eur_mwh": float((pp * g).sum() / g.sum())})
-    return pd.DataFrame(rows)
 
 
 def p_levels(values: pd.Series) -> dict[str, float]:
