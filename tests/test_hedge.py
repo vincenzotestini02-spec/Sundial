@@ -34,3 +34,22 @@ def test_breakeven_equals_flat_spot():
 def test_frontier_is_monotone():
     f = frontier(O, M, n_points=5, alpha=0.25)
     assert f["expected"].is_monotonic_decreasing
+
+
+def _fractional_tail_case():
+    m = np.random.default_rng(0).normal(100, 30, 95)    # alpha*n = 9.5, fractional
+    return m, cvar(m, 0.10)
+
+
+def test_all_merchant_feasible_at_own_cvar_when_tail_fractional():
+    m, floor = _fractional_tail_case()
+    worse = (m - 10.0)[:, None]                          # worse than merchant everywhere
+    r = optimise_allocation(worse, m, floor, alpha=0.10)
+    assert r.status == "optimal" and r.shares[0] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_flat_ppa_not_used_at_merchant_cvar_when_tail_fractional():
+    m, floor = _fractional_tail_case()
+    flat = np.full((95, 1), m.mean() - 5.0)              # mean below merchant
+    r = optimise_allocation(flat, m, floor, alpha=0.10)
+    assert r.status == "optimal" and r.shares[0] == pytest.approx(0.0, abs=1e-6)

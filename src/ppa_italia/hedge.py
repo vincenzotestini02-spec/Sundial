@@ -51,7 +51,7 @@ def _build_lp(npv_offers: np.ndarray, npv_merchant: np.ndarray, alpha: float):
         row 0      sum_j x_j <= 1                      (shares cannot exceed the plant)
         rows 1..n  eta - R_s - u_s <= 0                (u_s >= eta - R_s), i.e.
                    -sum_j d_sj x_j + eta - u_s <= m_s
-    The CVaR row  eta - (1/(alpha n)) sum_s u_s >= floor  is added by the caller
+    The CVaR row  eta - (1/K) sum_s u_s >= floor  is added by the caller
     because its right-hand side (the floor) differs between the two LPs.
     """
     n, k = npv_offers.shape
@@ -66,9 +66,12 @@ def _build_lp(npv_offers: np.ndarray, npv_merchant: np.ndarray, alpha: float):
     a_ub[1:, k + 1:] = -np.eye(n)
     b_ub[1:] = npv_merchant
 
-    cvar_row = np.zeros(k + 1 + n)                     # (1/(alpha n)) sum u - eta  (<= -floor)
+    # K = number of tail scenarios, the same K as cvar(); for integer K the LP value
+    # eta - (1/K) sum u equals the mean of the worst K revenues exactly.
+    tail_k = max(1, math.ceil(alpha * n))
+    cvar_row = np.zeros(k + 1 + n)                     # (1/K) sum u - eta  (<= -floor)
     cvar_row[k] = -1.0
-    cvar_row[k + 1:] = 1.0 / (alpha * n)
+    cvar_row[k + 1:] = 1.0 / tail_k
 
     bounds = [(0.0, 1.0)] * k + [(None, None)] + [(0.0, None)] * n
     return a_ub, b_ub, cvar_row, bounds
@@ -85,7 +88,7 @@ def optimise_allocation(npv_offers: np.ndarray, npv_merchant: np.ndarray,
     n, k = npv_offers.shape
     a_ub, b_ub, cvar_row, bounds = _build_lp(npv_offers, npv_merchant, alpha)
 
-    # CVaR floor row:  (1/(alpha n)) sum u - eta <= -cvar_floor
+    # CVaR floor row:  (1/K) sum u - eta <= -cvar_floor,  K = ceil(alpha n)
     a_ub = np.vstack([a_ub, cvar_row])
     b_ub = np.append(b_ub, -cvar_floor)
 
@@ -103,10 +106,12 @@ def optimise_allocation(npv_offers: np.ndarray, npv_merchant: np.ndarray,
 
 
 def _max_cvar(npv_offers: np.ndarray, npv_merchant: np.ndarray, alpha: float) -> float:
-    """Highest CVaR any allocation can reach (maximise eta - (1/(alpha n)) sum u)."""
+    """Highest CVaR any allocation can reach (maximise eta - (1/K) sum u)."""
     n, k = npv_offers.shape
     a_ub, b_ub, cvar_row, bounds = _build_lp(npv_offers, npv_merchant, alpha)
     res = linprog(cvar_row, A_ub=a_ub, b_ub=b_ub, bounds=bounds, method="highs")  # min -CVaR
+    if res.status != 0:
+        raise RuntimeError(f"max-CVaR LP failed: {res.message}")
     return float(-res.fun)
 
 
