@@ -53,3 +53,15 @@ def test_asset_page_falls_back_when_pvgis_fails(monkeypatch):
     assert len(at.warning) == 0  # default site never calls PVGIS
     at.number_input(key="lat").set_value(45.0).run()  # non-default site -> PVGIS is called
     assert not at.exception and len(at.warning) >= 1
+
+
+def test_offers_from_editor_rejects_empty_cells():
+    df = pd.DataFrame([{**OFFER_ROW, "price": float("nan")}])
+    offers, errors = offers_from_editor(df)
+    assert offers == [] and errors == [f"Row 1 ({OFFER_ROW['name']}): price is empty"]
+
+
+def test_win_share_bar_text_marks_fragile_winner():
+    from common import win_share_bar_text
+    assert win_share_bar_text(pd.Series([0.6, 0.4]), 0.70) == ["fragile", ""]
+    assert win_share_bar_text(pd.Series([0.8, 0.2]), 0.70) == ["", ""]

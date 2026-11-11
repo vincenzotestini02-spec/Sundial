@@ -67,8 +67,9 @@ fig = go.Figure(go.Bar(x=scores.index, y=scores.values))
 fig.update_layout(title="Weighted score (0 to 1, higher is better)", yaxis_title="score")
 left.plotly_chart(fig, width="stretch")
 
-fig = go.Figure(go.Bar(x=wins.index, y=wins.values))
-fig.add_hline(y=FRAGILE_THRESHOLD, line_dash="dash", annotation_text="0.70 robustness line")
+fig = go.Figure(go.Bar(x=wins.index, y=wins.values, text=common.win_share_bar_text(wins, FRAGILE_THRESHOLD),
+                       textposition="outside"))
+fig.add_hline(y=FRAGILE_THRESHOLD, line_dash="dash", annotation_text="0.70 — below = fragile")
 fig.update_layout(title="Win share across 5,000 perturbed weightings", yaxis_title="share of draws won",
                   yaxis_range=[0, 1])
 right.plotly_chart(fig, width="stretch")

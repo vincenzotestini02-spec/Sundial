@@ -41,11 +41,12 @@ with st.sidebar:
     zone = st.selectbox("Bidding zone", list(ZONES), index=list(ZONES).index(common.DEFAULT_ZONE))
     tech = st.radio("Technology", ["Solar", "Wind"])
     mw = st.number_input("Capacity (MW)", min_value=0.1, value=EXAMPLE_MW, step=1.0, key="mw")
-    lat = st.number_input("Latitude", value=PUGLIA[0], format="%.2f", key="lat")
-    lon = st.number_input("Longitude", value=PUGLIA[1], format="%.2f", key="lon")
+    lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=PUGLIA[0], format="%.2f", key="lat")
+    lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=PUGLIA[1], format="%.2f", key="lon")
 
 prices, is_synthetic = store.load_prices(zone)
 common.header("Asset value", is_synthetic)
+st.caption("The solar profile is the Puglia site's unless lat/lon are changed; the zone selector changes prices only.")
 
 if tech == "Solar":
     gen = solar_profile(lat, lon, mw)

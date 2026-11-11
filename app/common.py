@@ -55,6 +55,11 @@ def headline(rec: Recommendation) -> str:
     return f"Sign offer {rec.offer} for {rec.share * 100:.0f}% of production. {fair} {robust}"
 
 
+def win_share_bar_text(wins: pd.Series, threshold: float) -> list[str]:
+    """Bar labels for the win-share chart: 'fragile' on the winner's bar when it is below threshold."""
+    return ["fragile" if i == 0 and v < threshold else "" for i, v in enumerate(wins.values)]
+
+
 def offers_to_frame(offers: list[Offer]) -> pd.DataFrame:
     """Offers as a DataFrame whose columns are exactly the Offer field names."""
     return pd.DataFrame([dataclasses.asdict(o) for o in offers])
@@ -65,6 +70,10 @@ def offers_from_editor(df: pd.DataFrame) -> tuple[list[Offer], list[str]]:
     offers: list[Offer] = []
     errors: list[str] = []
     for i, row in enumerate(df.to_dict("records"), start=1):
+        empty = [k for k, v in row.items() if v is None or pd.isna(v)]
+        if empty:
+            errors.append(f"Row {i} ({row.get('name')}): {empty[0]} is empty")
+            continue
         try:
             offers.append(Offer(**row))
         except (ValueError, TypeError) as err:
