@@ -1,0 +1,13 @@
+# Illustrative market assumptions; Task 12 replaces imbalance and GoO with sourced values.
+# source: placeholder, illustrative imbalance cost for solar in the South zone (EUR/MWh)
+imbalance_cost = 3.0
+# source: placeholder, illustrative GoO market value (EUR/MWh)
+goo_value = 1.0
+# source: placeholder, illustrative minimum margin the producer requires (EUR/MWh)
+margin = 2.0
+# source: assumed cost of capital for a merchant-exposed solar project
+discount_rate = 0.07
+# source: assumed flat real merchant prices
+merchant_escalation_pct = 0.0
+# source: assumed loss given default for a PPA counterparty (unsecured corporate)
+lgd = 0.6
