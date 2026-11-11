@@ -24,6 +24,7 @@ zone = common.DEFAULT_ZONE
 case = common.get_example(zone)
 common.header("Compare offers", case.is_synthetic)
 st.write("Edit the offers below (price in €/MWh), then adjust the weights. Needs at least 2 valid offers.")
+st.caption("Edits here are a sandbox: they do not change the recommendation on Home, Hedge or Report.")
 
 edited = st.data_editor(
     common.offers_to_frame(case.offers),
@@ -60,7 +61,7 @@ except ValueError as err:  # e.g. duplicate offer names
     st.stop()
 
 st.subheader("Criteria")
-st.dataframe(table.round(2), width="stretch")
+st.dataframe(common.criteria_for_display(table), width="stretch")
 
 left, right = st.columns(2)
 fig = go.Figure(go.Bar(x=scores.index, y=scores.values))

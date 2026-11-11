@@ -131,6 +131,28 @@ def term_sheet_expanders() -> None:
             st.markdown(path.read_text(encoding="utf-8"))
 
 
+CRITERIA_LABELS = {
+    "npv_mean": "Mean NPV (M€)",
+    "npv_p10": "P10 NPV (M€)",
+    "credit_el": "Expected credit loss (M€)",
+    "tenor_years": "Tenor (years)",
+    "indexation_pct": "Indexation (%/yr)",
+    "imbalance_on_buyer": "Imbalance on buyer",
+    "penalty_severity": "Penalty severity (1-5)",
+}
+MEUR_COLUMNS = ("npv_mean", "npv_p10", "credit_el")
+
+
+def criteria_for_display(table: pd.DataFrame) -> pd.DataFrame:
+    """Criteria table with money in M€, indexation in %, yes/no flags and readable column names."""
+    out = table.copy()
+    for col in MEUR_COLUMNS:
+        out[col] = (out[col] / 1e6).round(3)
+    out["indexation_pct"] = (out["indexation_pct"] * 100).round(1)
+    out["imbalance_on_buyer"] = out["imbalance_on_buyer"].map({1: "yes", 0: "no"})
+    return out.rename(columns=CRITERIA_LABELS)
+
+
 def win_share_bar_text(wins: pd.Series, threshold: float) -> list[str]:
     """Bar labels for the win-share chart: 'fragile' on the winner's bar when it is below threshold."""
     return ["fragile" if i == 0 and v < threshold else "" for i, v in enumerate(wins.values)]

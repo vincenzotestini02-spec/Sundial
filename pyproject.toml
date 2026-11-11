@@ -14,7 +14,7 @@ dependencies = [
     "pyarrow>=15",
     "requests>=2.31",
     "entsoe-py>=0.6",
-    "streamlit>=1.40",
+    "streamlit>=1.50",
     "plotly>=5.20",
     "fpdf2>=2.7",
 ]

@@ -118,3 +118,23 @@ def test_term_sheet_expanders(page):
     at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=60).run()
     labels = [e.label for e in at.expander]
     assert "Term sheet (EN)" in labels and "Term sheet (IT)" in labels
+
+
+def test_criteria_for_display_uses_meur_and_labels():
+    from common import criteria_for_display
+    table = pd.DataFrame({"npv_mean": [2.5e6], "npv_p10": [1e6], "credit_el": [500.0], "tenor_years": [10],
+                          "indexation_pct": [0.02], "imbalance_on_buyer": [1], "penalty_severity": [3]},
+                         index=["A"])
+    out = criteria_for_display(table)
+    assert out.loc["A", "Mean NPV (M€)"] == pytest.approx(2.5)
+    assert out.loc["A", "Indexation (%/yr)"] == pytest.approx(2.0)
+    assert out.loc["A", "Imbalance on buyer"] == "yes"
+
+
+def test_asset_page_hides_wind_without_profile_and_no_dev_instructions():
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "1_Asset_value.py"), default_timeout=60).run()
+    assert not at.exception
+    assert at.radio[0].options == ["Solar"]
+    texts = [m.value for m in at.caption] + [m.value for m in at.info]
+    assert not any("scripts/" in t for t in texts)
+    assert any("share the same synthetic price series" in t for t in texts)

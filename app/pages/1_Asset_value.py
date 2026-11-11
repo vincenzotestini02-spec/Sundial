@@ -27,11 +27,21 @@ def fetch_pv(lat: float, lon: float, peak_kw: float) -> pd.Series:
     return series
 
 
+def wind_available(zone: str) -> bool:
+    """True when a wind capacity-factor profile has been built for the zone."""
+    try:
+        store.load_wind_cf(zone)
+    except FileNotFoundError:
+        return False
+    return True
+
+
 def solar_profile(lat: float, lon: float, mw: float) -> pd.Series:
     """PVGIS profile for a custom site; the Puglia profile (scaled) at the default site or on failure."""
     if (lat, lon) != PUGLIA:
         try:
-            return fetch_pv(lat, lon, mw * 1000)
+            with st.spinner("Fetching the PVGIS solar profile for this site..."):
+                return fetch_pv(lat, lon, mw * 1000)
         except pvgis.PvgisError as err:
             st.warning(f"PVGIS unavailable ({err}); using the Puglia profile scaled to {mw:g} MW.")
     return store.load_solar_puglia() * (mw / EXAMPLE_MW)
@@ -39,7 +49,10 @@ def solar_profile(lat: float, lon: float, mw: float) -> pd.Series:
 
 with st.sidebar:
     zone = st.selectbox("Bidding zone", list(ZONES), index=list(ZONES).index(common.DEFAULT_ZONE))
-    tech = st.radio("Technology", ["Solar", "Wind"])
+    has_wind = wind_available(zone)
+    tech = st.radio("Technology", ["Solar", "Wind"] if has_wind else ["Solar"])
+    if not has_wind:
+        st.caption("Wind is not available for this zone yet: its profile needs real ENTSO-E data.")
     mw = st.number_input("Capacity (MW)", min_value=0.1, value=EXAMPLE_MW, step=1.0, key="mw")
     lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=PUGLIA[0], format="%.2f", key="lat")
     lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=PUGLIA[1], format="%.2f", key="lon")
@@ -48,15 +61,10 @@ prices, is_synthetic = store.load_prices(zone)
 common.header("Asset value", is_synthetic)
 st.caption(common.TYPICAL_YEAR_NOTE)
 st.caption("The solar profile is the Puglia site's unless lat/lon are changed; the zone selector changes prices only.")
+if is_synthetic:
+    st.caption("All zones share the same synthetic price series, so switching zone does not change the results yet.")
 
-if tech == "Solar":
-    gen = solar_profile(lat, lon, mw)
-else:
-    try:
-        gen = store.load_wind_cf(zone) * mw
-    except FileNotFoundError:
-        st.info("Wind profile not built yet (run scripts/build_wind_proxy.py). Choose Solar to continue.")
-        st.stop()
+gen = solar_profile(lat, lon, mw) if tech == "Solar" else store.load_wind_cf(zone) * mw
 
 weather_energy = common.weather_year_energy(gen)  # P50/P90 come from the real weather years
 if tech == "Solar":
@@ -84,10 +92,14 @@ fig = go.Figure(go.Bar(x=years, y=summary["zero_or_negative_hours"]))
 fig.update_layout(title="Hours with price at or below zero", yaxis_title="hours")
 left.plotly_chart(fig, width="stretch")
 
+fig = go.Figure(go.Bar(x=years, y=summary["gen_share_in_zero_or_negative_hours"] * 100))
+fig.update_layout(title="Share of output in hours at or below zero (%)", yaxis_title="% of annual output")
+right.plotly_chart(fig, width="stretch")
+
 levels = p_levels(weather_energy if len(weather_energy) else summary["gen_mwh"])
 fig = go.Figure(go.Bar(x=["P90", "P50"], y=[levels["P90"], levels["P50"]]))
 fig.update_layout(title="Annual production (MWh)", yaxis_title="MWh/yr")
-right.plotly_chart(fig, width="stretch")
+left.plotly_chart(fig, width="stretch")
 
 st.caption(common.SOURCES)
 if is_synthetic:
