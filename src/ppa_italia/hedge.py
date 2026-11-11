@@ -105,7 +105,7 @@ def optimise_allocation(npv_offers: np.ndarray, npv_merchant: np.ndarray,
     return HedgeResult(shares, float(revenue.mean()), cvar(revenue, alpha), "optimal")
 
 
-def _max_cvar(npv_offers: np.ndarray, npv_merchant: np.ndarray, alpha: float) -> float:
+def max_cvar(npv_offers: np.ndarray, npv_merchant: np.ndarray, alpha: float = 0.10) -> float:
     """Highest CVaR any allocation can reach (maximise eta - (1/K) sum u)."""
     n, k = npv_offers.shape
     a_ub, b_ub, cvar_row, bounds = _build_lp(npv_offers, npv_merchant, alpha)
@@ -122,7 +122,7 @@ def frontier(npv_offers: np.ndarray, npv_merchant: np.ndarray,
     npv_merchant = np.asarray(npv_merchant, dtype=float)
     k = npv_offers.shape[1]
     floor_min = cvar(npv_merchant, alpha)
-    floor_max = max(_max_cvar(npv_offers, npv_merchant, alpha), floor_min)
+    floor_max = max(max_cvar(npv_offers, npv_merchant, alpha), floor_min)
 
     rows = []
     for floor in np.linspace(floor_min, floor_max, n_points):

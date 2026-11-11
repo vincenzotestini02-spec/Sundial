@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ppa_italia.hedge import cvar, merchant_breakeven_price, optimise_allocation
+from ppa_italia.hedge import cvar, max_cvar, merchant_breakeven_price, optimise_allocation
 from ppa_italia.pricing import fair_price_range
 from ppa_italia.scenarios import ScenarioSet
 from ppa_italia.structures import Market, Offer, npv
@@ -21,7 +21,11 @@ from ppa_italia.tender import (
 
 @dataclass
 class Recommendation:
-    """One answer: sign `offer` for `share` of production, fair price fair_low-fair_mid."""
+    """One answer: sign `offer` for `share` of production, fair price fair_low-fair_mid.
+
+    breakeven is offer-specific: for a floor offer it is the floor level at which
+    the offer matches merchant on mean NPV.
+    """
 
     offer: str
     share: float
@@ -45,19 +49,22 @@ def recommend(
 ) -> Recommendation:
     """Run the full chain: score, robustness, hedge share, fair price, break-even.
 
-    cvar_floor=None means the all-merchant CVaR ("no worse in the bad years
-    than not hedging").
+    Default floor (cvar_floor=None), a stated and adjustable assumption: halve
+    the gap between the all-merchant downside and the best downside the winning
+    offer can deliver, i.e. merchant_cvar + 0.5 * (max_cvar(winner) - merchant_cvar).
+    Pass cvar_floor explicitly to override (e.g. the merchant CVaR itself).
     """
     table = criteria_table(offers, sc, m, horizon)
     winner = score(table, weights, HIGHER_IS_BETTER).index[0]
     win_share = float(rank_stability(table, weights, HIGHER_IS_BETTER)[winner])
 
     npv_merchant = npv(None, sc, m, horizon)
-    if cvar_floor is None:
-        cvar_floor = cvar(npv_merchant, m.cvar_alpha)
-
     winner_offer = next(o for o in offers if o.name == winner)
     npv_winner = npv(winner_offer, sc, m, horizon)
+    if cvar_floor is None:
+        merchant_cvar = cvar(npv_merchant, m.cvar_alpha)
+        best_cvar = max_cvar(npv_winner[:, None], npv_merchant, m.cvar_alpha)
+        cvar_floor = merchant_cvar + 0.5 * (best_cvar - merchant_cvar)
     single = optimise_allocation(npv_winner[:, None], npv_merchant, cvar_floor, m.cvar_alpha)
     share = float(single.shares[0])
 
