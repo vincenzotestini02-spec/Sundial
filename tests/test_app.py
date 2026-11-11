@@ -90,3 +90,31 @@ def test_home_uses_latest_price_year():
     prices_last = get_home_yearly("SUD").index.max()
     from ppa_italia.data import store
     assert prices_last == store.load_prices("SUD")[0].index.year.max()
+
+
+def test_headline_labels_fair_range_as_pay_as_produced():
+    from common import breakeven_line, headline
+    from ppa_italia.recommend import Recommendation
+    rec = Recommendation("C", 0.4, 80.0, 85.0, 67.0, 0.8, False, {"C": 0.4}, False, 0.0)
+    assert "Fair pay-as-produced price range 80.0–85.0 €/MWh." in headline(rec)
+    assert headline(rec).startswith("Sign offer C")
+    assert "(floor level)" in breakeven_line(rec, "floor")
+    assert "(floor level)" not in breakeven_line(rec, "pap")
+
+
+def test_home_headline_on_page_says_pay_as_produced():
+    at = AppTest.from_file(str(ROOT / "app" / "Home.py"), default_timeout=60).run()
+    assert any("pay-as-produced price range" in m.value for m in at.markdown)
+
+
+def test_offers_from_editor_rejects_duplicate_names():
+    df = pd.DataFrame([OFFER_ROW, OFFER_ROW])
+    offers, errors = offers_from_editor(df)
+    assert len(offers) == 1 and errors == [f"Row 2 ({OFFER_ROW['name']}): duplicate name"]
+
+
+@pytest.mark.parametrize("page", ["Home.py", "pages/5_Report.py"])
+def test_term_sheet_expanders(page):
+    at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=60).run()
+    labels = [e.label for e in at.expander]
+    assert "Term sheet (EN)" in labels and "Term sheet (IT)" in labels

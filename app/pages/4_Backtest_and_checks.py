@@ -42,8 +42,10 @@ st.markdown(
     f"(expected {YIELD_RANGE[0]:,}–{YIELD_RANGE[1]:,})."
 )
 
-st.subheader("Fair price range versus benchmarks")
-st.markdown(f"Fair price range of this model: {rec.fair_low:.1f}–{rec.fair_mid:.1f} €/MWh.")
+st.subheader("Fair pay-as-produced price range versus benchmarks")
+st.markdown(f"Fair pay-as-produced price range of this model: {rec.fair_low:.1f}–{rec.fair_mid:.1f} €/MWh.")
+st.caption("The synthetic fair range is not comparable with the LevelTen figure below: different "
+           "price data, contract structure and percentile.")
 st.markdown(BENCHMARKS.read_text(encoding="utf-8"))
 
 st.subheader("Continuous integration")

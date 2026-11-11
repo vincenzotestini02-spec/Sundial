@@ -30,8 +30,8 @@ except Exception as err:  # never crash on the landing page
     st.stop()
 
 st.markdown(common.headline(rec))
-be = "n/a" if rec.breakeven != rec.breakeven else f"{rec.breakeven:.1f} €/MWh"
-st.markdown(f"Merchant break-even price of offer {rec.offer}: {be}")
+winner = common.offer_by_name(case.offers, rec.offer)
+st.markdown(common.breakeven_line(rec, winner.structure))
 if rec.fragile:
     st.markdown("The winner is fragile: it wins in fewer than 70% of weightings.")
 
@@ -51,5 +51,5 @@ st.page_link("pages/2_Compare_offers.py", label="Compare offers: edit offers, we
 st.page_link("pages/3_Hedge.py", label="Hedge: how much to sign, CVaR floor and frontier")
 st.page_link("pages/4_Backtest_and_checks.py", label="Backtest and checks: forecast error, yield, benchmarks")
 st.page_link("pages/5_Report.py", label="Report: download the customer PDF (IT/EN)")
-st.markdown("Term sheet (EN/IT) — in docs/")
+common.term_sheet_expanders()
 st.caption(common.SOURCES)

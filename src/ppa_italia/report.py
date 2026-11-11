@@ -10,9 +10,11 @@ from fpdf import FPDF
 
 from ppa_italia.recommend import Recommendation
 from ppa_italia.report_text import TEXT
+from ppa_italia.structures import Offer
 
 FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 MERCHANT_THRESHOLD = 0.01  # below this share the advice is to stay merchant
+INVESTMENT_GRADE = ("AAA", "AA", "A", "BBB")
 
 
 def _fmt(x: float, na: str, nd: int = 1, lang: str = "en") -> str:
@@ -21,6 +23,42 @@ def _fmt(x: float, na: str, nd: int = 1, lang: str = "en") -> str:
         return na
     s = f"{x:.{nd}f}"
     return s.replace(".", ",") if lang == "it" else s
+
+
+def _vowel_sound(number: str) -> bool:
+    """True when an Italian number word starts with a vowel: 1 (uno), 11 (undici), 8.. (otto/ottanta)."""
+    digits = number.split(",")[0].split(".")[0]
+    return digits in ("1", "11") or digits.startswith("8")
+
+
+def _articles(lang: str, share_pct: str, win_pct: str, capture_rate: str, index_pct: str) -> dict[str, str]:
+    """Italian article fields with elision before a vowel ('il 70%' but 'l'80%'); empty for English."""
+    if lang != "it":
+        return {"il_share": "", "nel_win": "", "al_capture": "", "al_index": ""}
+    return {
+        "il_share": "l'" if _vowel_sound(share_pct) else "il ",
+        "nel_win": "nell'" if _vowel_sound(win_pct) else "nel ",
+        "al_capture": "all'" if _vowel_sound(capture_rate) else "al ",
+        "al_index": "all'" if _vowel_sound(index_pct) else "al ",
+    }
+
+
+def _risk_and_red_team(t: dict[str, str], rec: Recommendation, offer: Offer | None,
+                       fields: dict[str, str]) -> tuple[str, str]:
+    """Structure-aware risk text and a red-team paragraph built from the offer's data."""
+    risk = t["risks"]
+    red = t["red_team_fragile" if rec.fragile else "red_team_robust"]
+    if offer is not None:
+        risk += t[f"risk_{offer.structure}"]
+        if not math.isnan(rec.breakeven):
+            kind = "floor" if offer.structure == "floor" else "fixed"
+            side = "below" if offer.price < rec.breakeven else "above"
+            red += t[f"red_{kind}_{side}"]
+        red += t["red_rating_ig" if offer.rating in INVESTMENT_GRADE else "red_rating_sub_ig"]
+        red += t["red_tenor_indexed" if offer.indexation_pct > 0 else "red_tenor_flat"]
+    if rec.disagrees:
+        red += t["red_team_disagrees"]
+    return risk.format(**fields), red.format(**fields)
 
 
 def _heading_body(pdf: FPDF, block: str) -> None:
@@ -54,8 +92,13 @@ def build_report(
     zone: str,
     lang: Literal["it", "en"],
     is_synthetic: bool,
+    offer: Offer | None = None,
 ) -> bytes:
-    """Build the customer PDF (at most 2 pages) and return its bytes."""
+    """Build the customer PDF (at most 2 pages) and return its bytes.
+
+    `offer` is the recommended Offer; when given, the risk section and the red team
+    depend on its structure, price, rating, tenor and indexation.
+    """
     t = TEXT[lang]
     na = t["na"]
     pdf = FPDF(format="A4")
@@ -73,35 +116,47 @@ def build_report(
         pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
 
-    # 1. Situation: capture-rate trend
     cr = summary["capture_rate"].dropna()
     latest = float(cr.iloc[-1]) * 100 if len(cr) else float("nan")
-    _heading_body(pdf, t["situation"].format(zone=zone, capture_rate=_fmt(latest, na, 0, lang)))
+    fields = {
+        "zone": zone,
+        "offer": rec.offer,
+        "share_pct": f"{rec.share * 100:.0f}",
+        "win_pct": f"{rec.win_share * 100:.0f}",
+        "capture_rate": _fmt(latest, na, 0, lang),
+        "fair_low": _fmt(rec.fair_low, na, 1, lang),
+        "fair_mid": _fmt(rec.fair_mid, na, 1, lang),
+        "breakeven": _fmt(rec.breakeven, na, 1, lang),
+        "floor_label": t["floor_label"] if offer is not None and offer.structure == "floor" else "",
+        "price": _fmt(offer.price, na, 1, lang) if offer is not None else na,
+        "rating": offer.rating if offer is not None else na,
+        "tenor": str(offer.tenor_years) if offer is not None else na,
+        "index_pct": _fmt(offer.indexation_pct * 100, na, 1, lang) if offer is not None else na,
+    }
+    fields.update(_articles(lang, fields["share_pct"], fields["win_pct"],
+                            fields["capture_rate"], fields["index_pct"]))
+
+    # 1. Situation: capture-rate trend
+    _heading_body(pdf, t["situation"].format(**fields))
     _table(pdf, (t["capture_trend"], "%"),
            [(str(y), _fmt(float(v) * 100, na, 1, lang)) for y, v in cr.items()])
 
-    # 2. Options: LP shares per offer, plus the recommended offer
-    shares = dict(rec.multi_offer_shares)
-    shares.setdefault(rec.offer, rec.share)
-    _heading_body(pdf, t["options"].format(offer=rec.offer))
+    # 2. Options: the multi-offer mix from the LP, then the winner's single-offer share
+    _heading_body(pdf, t["options"].format(**fields))
     _table(pdf, (t["col_offer"], t["col_share"]),
-           [(name, f"{s * 100:.0f}%") for name, s in shares.items()])
+           [(name, f"{s * 100:.0f}%") for name, s in rec.multi_offer_shares.items()])
+    pdf.multi_cell(0, 5.5, t["options_single"].format(**fields), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
 
     # 3. Recommendation headline + merchant break-even (distinct from the fair range)
     key = "recommendation_merchant" if rec.share < MERCHANT_THRESHOLD else "recommendation"
-    _heading_body(pdf, t[key].format(
-        offer=rec.offer, share_pct=f"{rec.share * 100:.0f}",
-        fair_low=_fmt(rec.fair_low, na, 1, lang), fair_mid=_fmt(rec.fair_mid, na, 1, lang)))
-    pdf.multi_cell(0, 5.5, t["breakeven"].format(
-        offer=rec.offer, breakeven=_fmt(rec.breakeven, na, 1, lang)), new_x="LMARGIN", new_y="NEXT")
+    _heading_body(pdf, t[key].format(**fields))
+    pdf.multi_cell(0, 5.5, t["breakeven"].format(**fields), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
-    # 4. Risks, including the red-team paragraph
-    red = t["red_team_fragile" if rec.fragile else "red_team_robust"].format(
-        win_pct=f"{rec.win_share * 100:.0f}")
-    if rec.disagrees:
-        red += t["red_team_disagrees"]
-    _heading_body(pdf, t["risks"])
+    # 4. Risks (structure-aware) and the red-team paragraph built from the offer's data
+    risk, red = _risk_and_red_team(t, rec, offer, fields)
+    _heading_body(pdf, risk)
     pdf.multi_cell(0, 5.5, red, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
