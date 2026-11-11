@@ -1,83 +1,119 @@
-# Italian Renewables Route-to-Market Toolkit
+# ppa-italia
 
-A commercial toolkit for valuing Italian renewable assets and preparing customer-ready route-to-market proposals: market analysis, PPA structure comparison, tender evaluation, contract management and settlement reconciliation.
+A Python package and Streamlit app that values Italian renewable power purchase agreements (PPAs) and turns a set of offers into one recommendation.
 
-> **Status (2026-11-10):** depth foundations built and tested — capture-rate engine, real PVGIS solar profile for the Puglia park (P50 29,335 MWh/yr, 1,468 kWh/kWp), PPA pricing formula, tender scoring with robustness check. Zonal prices wait on the ENTSO-E API token. See [ROADMAP.md](ROADMAP.md) and the [ambition plan](docs/ambition-plan.md).
->
-> **Quick start:** `pip install -e ".[dev]"` · `python -m pytest` · `python scripts/build_puglia_profile.py` · set `ENTSOE_TOKEN` for prices.
->
-> **Disclaimer:** all models are simplified and indicative, built on public data for learning and demonstration. They are not trading advice and do not represent any company's actual pricing.
+> Indicative, educational, built on public data. Not trading advice and not any company's pricing.
 
-## Why this project
+## The 30-second view
 
-Built as a portfolio project for a student role in **Commercial Asset Management (Italy)** at an energy trading company: supporting Italian customers with renewable assets through contract management, tender and sales material, customer meetings, collaboration with middle/back office, and internal projects.
+**The customer's question:** a 20 MW solar park in Puglia (zone SUD) has received three PPA offers. Which one should it sign, for how much of its production, and what is a fair price?
 
-The goal is to show I could sit down with an Italian renewable asset owner with a credible analysis and proposal.
+**Current headline (synthetic placeholder prices, to be updated with the real-data run):**
+Sign offer C for 44% of production. Fair price range 84.9 to 87.4 EUR/MWh. Recommendation robust in 82% of weightings.
 
-## Scenario
+Offer C is a 12-year floor PPA (floor at 70% of the P50 capture price, 4 EUR/MWh premium, buyer carries imbalance, GoOs sold separately, zero volume at prices at or below zero, BB-rated buyer). See the one-page term sheet: [English](docs/term-sheet-en.md), [Italiano](docs/term-sheet-it.md).
 
-I play a junior commercial asset manager. A fictional customer owns:
+> **Status:** zonal prices are a clearly labelled synthetic series until the ENTSO-E API token arrives. Every page and the PDF say so. Real-data results will replace the headline above.
 
-- a **20 MW solar park in Puglia** (SUD bidding zone)
-- a **wind park in Sicily** (SICI bidding zone)
+| | |
+|---|---|
+| App | _link to be added after deployment_ (Streamlit Community Cloud apps sleep when idle; wake-up takes up to about a minute) |
+| Screenshot 1: Home | _to be added_ |
+| Screenshot 2: Compare offers and robustness | _to be added_ |
+| Screenshot 3 / GIF: Hedge frontier and report | _to be added_ |
 
-The customer wants to know how to sell their power. The toolkit covers the full path from analysis to proposal.
+## How it works
 
-## Components and the role tasks they cover
+The chain runs in one direction so that Home, the report and the term sheet agree:
 
-| Role task | Component | Folder |
+1. **Structures and credit** give each offer an expected revenue, a P10 (downside) revenue and an expected credit loss.
+2. **Tender scoring** ranks the offers on those and on contract terms; its winner is the recommended offer. A Dirichlet weight-perturbation test reports how often it still wins.
+3. **Hedge LP** sizes how much production goes under the winner, subject to a CVaR floor on the worst 10% of scenarios.
+4. **Fair price** is the capture price net of imbalance and margin, plus GoO value, with a low end from the scenario spread. The merchant breakeven is shown as a check.
+
+Package `src/ppa_italia/`:
+
+| Module | Role |
+|---|---|
+| `data/` | ENTSO-E price loader, PVGIS loader, synthetic placeholder prices, store |
+| `value.py` | capture price and rate, zero/negative-price exposure |
+| `scenarios.py` | "historical shape, current level" price scenarios paired with weather years |
+| `structures.py` | revenue and NPV for pay-as-produced, baseload and floor PPAs |
+| `credit.py` | expected credit loss by rating |
+| `tender.py` | multi-criteria scoring and weight robustness |
+| `hedge.py` | CVaR-constrained allocation LP, frontier, breakeven |
+| `pricing.py` | fair price range, trailing-capture backtest |
+| `recommend.py` | the single recommendation |
+| `report.py`, `report_text.py` | two-page customer PDF in Italian and English |
+
+Streamlit app (`app/`): Home, Asset value, Compare offers, Hedge, Backtest and checks, Report. The Puglia example is pre-loaded on every page, so the app works with no input. Models and their limits: [docs/methodology.md](docs/methodology.md).
+
+**CBS Energy Economics minor: where it shows**
+
+| Course | Where in the app |
+|---|---|
+| Energy Economics, Markets, and Policy | Merit order and solar cannibalisation: capture rate and zero/negative-price hours (Asset value) |
+| Energy System Economics and Modelling | The optimisation model: LP allocation across offers and merchant with a CVaR floor (Hedge) |
+| The Energy Industry in Transition | Why an owner must choose a route to market, and how the answer is framed for a customer (Home, Report, term sheet) |
+
+## Data and licences
+
+- **PVGIS**, (c) European Union: solar production profile. Free, keyless.
+- **ENTSO-E Transparency Platform**: zonal day-ahead prices and wind generation, via the author's API token. The terms on redistributing hourly data have not yet been checked by the author; if redistribution is not allowed, the repository ships only zone-year aggregates and the Puglia results (fallback in [docs/data-sources.md](docs/data-sources.md)).
+- **Energy-Charts** is never used: its licence for Italian zones is private and internal use only.
+- **Synthetic placeholder:** until the token arrives, prices are generated by `data/synthetic.py` and every output is labelled.
+
+All sources: [docs/data-sources.md](docs/data-sources.md). Price benchmarks: [docs/benchmarks.md](docs/benchmarks.md).
+
+## Checks
+
+| What | Judge | Result |
 |---|---|---|
-| Energy market understanding | **Asset value engine** — Italian zonal day-ahead prices (ENTSO-E) and generation profiles (PVGIS solar, Renewables.ninja wind) → capture price and capture rate by zone, solar cannibalisation trend, zero/negative-price hours | `src/value_engine/` |
-| Solutions for customer growth, drafting contracts | **Route-to-market comparison** — merchant vs fixed-price PPA (pay-as-produced, baseload), floor, collar; includes imbalance costs, profile risk, guarantee-of-origin (GoO) value → indicative price range with risk discount | `src/rtm_pricing/` |
-| Tender and sales material | **Customer proposal** — 2-page proposal in **Italian and English**: findings, recommended options, risks | `deliverables/proposal/` |
-| Managing tender processes | **Offer comparison** — 3 fictional PPA offers scored on explicit weighted criteria (price, tenor, indexation, counterparty, penalties), multi-criteria method | `src/tender_eval/` |
-| Contract management | **Contract register** — simulated portfolio of 10-15 Italian contracts: key terms, expiries, indexation, renewal alerts, volume deviations | `src/contracts/` |
-| Collaboration with middle/back office | **Settlement reconciliation** — contracted volume vs metered production vs invoiced amount, with exceptions flagged | `src/contracts/settlement/` |
-| Customer growth, business development | **Portfolio opportunity map** — expiring contracts, assets not monetising GoOs, assets in zones with many negative-price hours (battery co-location candidates) | `src/opportunities/` |
-| Internal projects | **Italian market note** — zonal pricing transition (PUN phase-out), renewable auctions (FER X), storage auctions (MACSE). Every regulatory point verified on GSE / Terna / ARERA before writing | `deliverables/market-note/` |
+| All models | Unit tests with hand-computed answers, run in CI | 90 tests pass (synthetic data) |
+| Solar profile | Specific yield vs plausible Puglia fixed-tilt range of 1,400-1,600 kWh/kWp | 1,468 kWh/kWp, pass |
+| Pricing anchor | Backtest error of trailing capture price | Pending real data |
+| Fair PPA range | Publicly reported Italian solar PPA levels | Pending real data; one dated, caveated figure so far (LevelTen Q4 2025, 60.67 EUR/MWh via pv magazine), see benchmarks |
+| Recommendation | Weight robustness, at least 70% win share or labelled fragile | 82% on the synthetic run, pass |
+| Hedge LP | Sanity cases in tests (floor at 0 gives all merchant if merchant mean is higher; floor at max gives full hedge) | Tests pass |
 
-## Stack
+A missed target reported with real numbers counts as a pass for honesty. Nothing is reported as passed that was not run.
 
-- **Python** (pandas, requests, entsoe-py) — data and models
-- **Power BI** — portfolio dashboard
-- **Excel** — offer comparison and contract register views
-- **PDF** — customer proposal and market note
+## Quick start
 
-## Data sources
-
-See [docs/data-sources.md](docs/data-sources.md).
-
-## Planned structure
-
-```
-italian-renewables-rtm/
-├── README.md
-├── ROADMAP.md
-├── docs/
-│   ├── data-sources.md
-│   ├── methodology.md        # capture rate, PPA pricing, assumptions
-│   └── ambition-plan.md      # altitude / depth / range plan and outside judges
-├── data/
-│   ├── raw/                  # downloaded, not committed
-│   └── processed/
-├── src/
-│   ├── value_engine/
-│   ├── rtm_pricing/
-│   ├── tender_eval/
-│   ├── contracts/
-│   │   └── settlement/
-│   └── opportunities/
-├── notebooks/                # exploration
-├── dashboards/               # Power BI file
-└── deliverables/
-    ├── tender/               # offer comparison
-    ├── proposal/             # IT + EN
-    ├── contracts/            # term sheet summary
-    ├── customer-meeting/     # slides (IT)
-    ├── settlement/           # reconciliation report
-    └── market-note/
+```bash
+pip install -e .[dev]
+python -m pytest
+streamlit run app/Home.py
 ```
 
-## How I approached it / what I learned
+Real prices need a free ENTSO-E token in the `ENTSOE_TOKEN` environment variable, then:
 
-To be written as the project progresses: problem, approach, choices and trade-offs, what I learned, and what I would do with real customer data.
+```bash
+python scripts/build_prices.py --zones NORD CNOR CSUD SUD CALA SICI SARD --start 2021-01-01
+python scripts/build_wind_proxy.py --zones SUD SICI
+python scripts/build_puglia_profile.py   # PVGIS solar profile, no key
+```
+
+## AI-assisted parts
+
+The code and the first drafts of the documentation were generated with AI assistance (Claude), under a reviewed, test-first process: tests written first, then code, then review. The author must still verify:
+
+- the Italian copy (`report_text.py`, `docs/term-sheet-it.md`);
+- every sourced assumption (imbalance cost, GoO value, default probabilities) and replace the placeholders;
+- the ENTSO-E licence decision, and the clause list against the current EFET Corporate PPA template (its current version could not be opened during drafting).
+
+## Limitations
+
+- Prices are synthetic until the real-data run; headline numbers will change.
+- Scenarios pair different price and weather years, which understates cannibalisation in sunny years.
+- Scenario set is small (about 100 equally weighted scenarios), so CVaR is noisy.
+- The negative-price clause is modelled for pay-as-produced offers only.
+- Credit uses a rating-based default table with one LGD; no collateral or rating migration.
+- Wind uses a zonal proxy, not a single site.
+- The offers and the buyer are fictional.
+
+Details: [docs/methodology.md](docs/methodology.md).
+
+---
+
+Indicative, educational, built on public data. Not trading advice and not any company's pricing.
