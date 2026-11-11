@@ -81,8 +81,9 @@ def offer_revenue(o: Offer, sc: ScenarioSet, m: Market, year: int = 0) -> np.nda
         revenue = price * volume.sum(axis=1)
     elif o.structure == "baseload":
         revenue = price * o.baseload_mw * HOURS + (p * (g - o.baseload_mw)).sum(axis=1)
-    else:  # floor
-        revenue = (np.maximum(p, price) * g).sum(axis=1) - o.floor_premium * total_gen
+    else:  # floor: max(spot, floor) on contracted volume, premium per contracted MWh
+        volume = np.where(p <= 0, 0.0, g) if o.zero_volume_negative else g
+        revenue = (np.maximum(p, price) * volume).sum(axis=1) - o.floor_premium * volume.sum(axis=1)
 
     if not o.imbalance_on_buyer:
         revenue = revenue - m.imbalance_cost * total_gen

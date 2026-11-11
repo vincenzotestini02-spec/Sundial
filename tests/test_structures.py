@@ -67,3 +67,14 @@ def test_load_example_is_anchored_and_consistent():
     p50_capture = float(np.percentile(ex.scenarios.capture_prices(), 50))
     a = ex.offers[0]
     assert a.price == pytest.approx(0.97 * p50_capture)
+
+
+def test_floor_zero_volume_in_negative_hours():
+    # 10 hours at -5, 4370 hours at 20 (floor 40 binds), 4380 hours at 50 (spot binds).
+    sc = _flat_sc(); sc.prices[0, :10] = -5.0; sc.prices[0, 10:4380] = 20.0
+    on = _offer(structure="floor", price=40.0, floor_premium=2.0, zero_volume_negative=True)
+    off = _offer(structure="floor", price=40.0, floor_premium=2.0, zero_volume_negative=False)
+    # Clause on: no volume (no floor top-up, no spot, no premium) in the 10 hours at p <= 0.
+    assert offer_revenue(on, sc, M0)[0] == pytest.approx(40 * 4370 + 50 * 4380 - 2 * 8750)
+    # Clause off: the floor also pays in the negative hours.
+    assert offer_revenue(off, sc, M0)[0] == pytest.approx(40 * 4380 + 50 * 4380 - 2 * 8760)
