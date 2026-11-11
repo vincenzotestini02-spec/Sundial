@@ -9,7 +9,7 @@ A Python package and Streamlit app that values Italian renewable power purchase 
 **The customer's question:** a 20 MW solar park in Puglia (zone SUD) has received three PPA offers. Which one should it sign, for how much of its production, and what is a fair price?
 
 **Current headline (synthetic placeholder prices, to be updated with the real-data run):**
-Sign offer C for 44% of production. Fair price range 84.9 to 87.4 EUR/MWh. Recommendation robust in 82% of weightings.
+Sign offer C for 44% of production. Fair pay-as-produced price range 84.9 to 87.4 EUR/MWh. Recommendation robust in 82% of weightings. Merchant break-even of offer C (floor level): 67.2 EUR/MWh, above its 64 EUR/MWh floor, so the floor is bought for downside protection, not for expected value.
 
 Offer C is a 12-year floor PPA (floor at 70% of the P50 capture price, 4 EUR/MWh premium, buyer carries imbalance, GoOs sold separately, zero volume at prices at or below zero, BB-rated buyer). See the one-page term sheet: [English](docs/term-sheet-en.md), [Italiano](docs/term-sheet-it.md).
 
@@ -28,8 +28,8 @@ The chain runs in one direction so that Home, the report and the term sheet agre
 
 1. **Structures and credit** give each offer an expected revenue, a P10 (downside) revenue and an expected credit loss.
 2. **Tender scoring** ranks the offers on those and on contract terms; its winner is the recommended offer. A Dirichlet weight-perturbation test reports how often it still wins.
-3. **Hedge LP** sizes how much production goes under the winner, subject to a CVaR floor on the worst 10% of scenarios.
-4. **Fair price** is the capture price net of imbalance and margin, plus GoO value, with a low end from the scenario spread. The merchant breakeven is shown as a check.
+3. **Hedge LP** sizes how much production goes under the winner, subject to a CVaR floor on the worst 10% of scenarios. Scenario NPVs are net of each offer's expected credit loss.
+4. **Fair pay-as-produced price** is the capture price net of imbalance and margin, plus GoO value, with a low end from the scenario spread. The merchant breakeven is shown as a check.
 
 Package `src/ppa_italia/`:
 
@@ -72,7 +72,7 @@ All sources: [docs/data-sources.md](docs/data-sources.md). Price benchmarks: [do
 | All models | Unit tests with hand-computed answers, run in CI | 90 tests pass (synthetic data) |
 | Solar profile | Specific yield vs plausible Puglia fixed-tilt range of 1,400-1,600 kWh/kWp | 1,468 kWh/kWp, pass |
 | Pricing anchor | Backtest error of trailing capture price | Pending real data |
-| Fair PPA range | Publicly reported Italian solar PPA levels | Pending real data; one dated, caveated figure so far (LevelTen Q4 2025, 60.67 EUR/MWh via pv magazine), see benchmarks |
+| Fair PPA range | Publicly reported Italian solar PPA levels | Pending real data; one dated, caveated figure so far (LevelTen Q4 2025, 60.67 EUR/MWh via pv magazine), see benchmarks. The synthetic fair range is not comparable with the LevelTen figure: different price data, structure and percentile. |
 | Recommendation | Weight robustness, at least 70% win share or labelled fragile | 82% on the synthetic run, pass |
 | Hedge LP | Sanity cases in tests (floor at 0 gives all merchant if merchant mean is higher; floor at max gives full hedge) | Tests pass |
 
@@ -81,7 +81,7 @@ A missed target reported with real numbers counts as a pass for honesty. Nothing
 ## Quick start
 
 ```bash
-pip install -e .[dev]
+pip install -e ".[dev]"
 python -m pytest
 streamlit run app/Home.py
 ```
@@ -107,7 +107,6 @@ The code and the first drafts of the documentation were generated with AI assist
 - Prices are synthetic until the real-data run; headline numbers will change.
 - Scenarios pair different price and weather years, which understates cannibalisation in sunny years.
 - Scenario set is small (about 100 equally weighted scenarios), so CVaR is noisy.
-- The negative-price clause is modelled for pay-as-produced offers only.
 - Credit uses a rating-based default table with one LGD; no collateral or rating migration.
 - Wind uses a zonal proxy, not a single site.
 - The offers and the buyer are fictional.

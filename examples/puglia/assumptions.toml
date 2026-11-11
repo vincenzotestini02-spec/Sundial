@@ -1,4 +1,4 @@
-# Illustrative market assumptions; Task 12 replaces imbalance and GoO with sourced values.
+# Illustrative market assumptions; imbalance cost and GoO value are pending sourcing.
 # source: placeholder, illustrative imbalance cost for solar in the South zone (EUR/MWh)
 imbalance_cost = 3.0
 # source: placeholder, illustrative GoO market value (EUR/MWh)

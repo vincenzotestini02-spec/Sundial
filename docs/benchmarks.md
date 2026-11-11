@@ -10,7 +10,7 @@ Research date: 2026-11-11. The app's current range is computed on a **synthetic 
 
 Caveats on the one figure above:
 
-- It is a secondary report (pv magazine quoting LevelTen). The article does not define the percentile (the same article mentions "P25" only for the continental index), the contract length or the delivery structure. I did not open LevelTen's own Italy page; the Q2 2026 LevelTen post I tried returned HTTP 404 and the report itself is subscriber-only.
+- It is a secondary report (pv magazine quoting LevelTen). The article does not define the percentile (the same article mentions "P25" only for the continental index), the contract length or the delivery structure. Not verified: LevelTen's own Italy page (not opened); the Q2 2026 LevelTen post returned HTTP 404 and the report itself is subscriber-only.
 - The article does not say whether this is an asking-price index or settled deals, nor whether it is pay-as-produced or specific to the South. Treat it as an order-of-magnitude check, not as a target.
 - The app range is a pay-as-produced price net of imbalance and margin; the index is not defined on the same basis.
 

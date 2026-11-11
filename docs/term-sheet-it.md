@@ -24,6 +24,6 @@ Illustrazione non vincolante dell'offerta raccomandata nell'esempio Puglia dell'
 
 ## Verifica dell'elenco clausole rispetto al modello EFET per i PPA corporate
 
-Stato: **non completata.** Non sono riuscito ad aprire efet.org: la pagina CPPA (https://www.efet.org/standardisation/cppa/) e il PDF del modello hanno restituito un errore di certificato SSL negli strumenti di accesso, che non ho aggirato. Non posso quindi citare versione e data attuali dalla fonte EFET.
+Stato: **non completata.** Non verificato: versione e data attuali del modello su efet.org. La pagina CPPA (https://www.efet.org/standardisation/cppa/) e il PDF del modello hanno restituito un errore di certificato SSL durante la redazione e non sono stati aperti; versione e data non sono quindi citate dalla fonte EFET.
 
 Da fonti secondarie aperte: EFET ha pubblicato un modello di PPA corporate per l'Europa nel 2019 (comunicato RECS International del 26 giugno 2019, https://recs.org/news/efet-publishes-corporate-ppa-template-agreement-for-europe/); un articolo Pexapark del 26 marzo 2020 ne descrive la struttura in Parte I (termini individuali) e Parte II (disposizioni generali: pagamento di chiusura, cambio normativo, forza maggiore, risoluzione delle controversie) (https://pexapark.com/blog/efet-ppa-power-purchase-agreement-template/). Nessuno dei due indica un numero di versione. L'autore deve confrontare l'elenco con il modello attuale su efet.org e registrare qui versione e data.

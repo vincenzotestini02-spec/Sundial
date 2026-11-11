@@ -40,17 +40,19 @@ Hourly revenue to the seller, per contract year *t*, with spot *p_h* escalated b
 |---|---|
 | Pay-as-produced (`pap`) | P x sum(g_h); with the negative-price clause, hours with p_h <= 0 carry zero volume |
 | Baseload (`baseload`) | P x B x 8,760 + sum(p_h (g_h - B)); B is the contracted baseload MW. The second term is the shape risk |
-| Floor (`floor`) | sum(max(p_h, P) g_h) - premium x sum(g_h) |
+| Floor (`floor`) | sum(max(p_h, P) v_h) - premium x sum(v_h), with contracted volume v_h = g_h; with the negative-price clause, v_h = 0 in hours with p_h <= 0 (no floor top-up, no spot revenue, no premium) |
 
 Adjustments: if imbalance stays with the seller, the imbalance cost per MWh is deducted; if GoOs are not included in the offer, the GoO value per MWh is added. Merchant revenue is sum(p_h g_h) minus imbalance cost plus GoO value.
 
 NPV over the horizon (the longest tenor) discounts year-end revenue at the stated rate; after an offer's tenor the plant earns merchant revenue. Offers with different tenors are therefore compared on the same horizon.
 
-*Limitations:* the negative-price clause is applied to pay-as-produced offers only; the floor and baseload formulas do not use it. Escalation of the merchant level is a single stated assumption (default 0%/yr real). No degradation, curtailment or basis between the contract and the physical node.
+*Limitations:* the negative-price clause applies to pay-as-produced and floor offers; the baseload formula does not use it (a baseload block is a fixed hourly volume). Escalation of the merchant level is a single stated assumption (default 0%/yr real). No degradation, curtailment or basis between the contract and the physical node.
 
 ## 5. Credit expected loss (`credit.py`)
 
-Expected loss = PD(rating) x LGD x exposure, accumulated over the tenor. Exposure at year *t* is the mean over scenarios of the positive part of the present value of the remaining years' (offer - merchant) revenue, because the seller only loses if the contract is worth more than selling at spot. Loss in year *t* is weighted by the marginal default probability (1 - PD)^t PD, times LGD, discounted to today.
+Expected loss = PD(rating) x LGD x exposure, accumulated over the tenor. Timing follows the NPV: revenue of contract year *k* is booked at the end of year *k*. A default during year *t* loses years *t* to *T*-1 and is recognised at the end of year *t*. Exposure is the mean over scenarios of the positive part of the present value, at the end of year *t*, of the remaining years' (offer - merchant) revenue, because the seller only loses if the contract is worth more than selling at spot. Loss in year *t* is weighted by the marginal default probability (1 - PD)^t PD, times LGD, and discounted (1 + r)^(t+1) to today, so each year's revenue gap is discounted (1 + r)^(k+1) in total, as in the NPV.
+
+The expected loss (a present value in EUR) is subtracted from every scenario NPV of the offer before the hedge LPs (`npv_net_of_credit`), so the hedge objective is NPV net of credit loss.
 
 - PD by rating: a small table of long-run one-year default rates (AAA 0%, AA 0.02%, A 0.05%, BBB 0.15%, BB 0.60%, B 3.00%), attributed in the code to the S&P annual default study. **The exact edition and values are not yet verified against the source** and must be checked by the author.
 - LGD 60%: stated assumption (unsecured corporate).
@@ -72,7 +74,7 @@ Variables: share x_j of production under each offer (x_j >= 0, sum <= 1; the res
 
 ## 8. Fair price range and breakeven (`pricing.py`, `hedge.py`)
 
-- **Fair pay-as-produced price (mid)** = P50 capture price - imbalance cost - margin + GoO value (if transferred). The **low end** is the mid minus the gap between the P50 and P10 capture price (a risk discount from the scenario spread). Inputs: imbalance cost, margin and GoO value are placeholders until Task 12 sourcing is done (see `examples/puglia/assumptions.toml`).
+- **Fair pay-as-produced price (mid)** = P50 capture price - imbalance cost - margin + GoO value (if transferred). The **low end** is the mid minus the gap between the P50 and P10 capture price (a risk discount from the scenario spread). Inputs: imbalance cost, margin and GoO value are placeholders pending sourcing (see `examples/puglia/assumptions.toml`). The range is a pay-as-produced fixed-price equivalent; the app and the report label it "fair pay-as-produced price range".
 - **Breakeven** (`merchant_breakeven_price`): the offer price at which the offer's mean NPV equals the mean NPV of staying merchant, found by root-finding on (0, 1000] EUR/MWh. For a floor offer it is the floor level. If no such price exists the app shows "n/a".
 - *Limitations:* the range is built on an assumed margin and a scenario spread, not on observed deal prices. See `docs/benchmarks.md` for the only dated external comparison found so far.
 
