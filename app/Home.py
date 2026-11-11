@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[0]))  # make app/common.
 import streamlit as st  # noqa: E402
 
 import common  # noqa: E402
+from ppa_italia.data import store  # noqa: E402
 from ppa_italia.pricing import p_levels  # noqa: E402
 
 st.set_page_config(page_title="PPA Italia", layout="wide")
@@ -37,14 +38,18 @@ if rec.fragile:
 full = yearly[yearly["hours"] >= 8700]
 used = full if not full.empty else yearly
 latest = used.iloc[-1]
-p50 = p_levels(used["gen_mwh"])["P50"]
+p50 = p_levels(common.weather_year_energy(store.load_solar_puglia()))["P50"]
 c1, c2, c3 = st.columns(3)
 c1.metric(f"Capture rate {int(latest.name)}", f"{latest['capture_rate'] * 100:.0f}%")
 c2.metric("P50 production", f"{p50:,.0f} MWh/yr")
 c3.metric("Win share of best offer", f"{rec.win_share * 100:.0f}%")
 
+st.caption(common.TYPICAL_YEAR_NOTE)
 st.subheader("Explore")
 st.page_link("pages/1_Asset_value.py", label="Asset value: capture price, capture rate, P50/P90")
 st.page_link("pages/2_Compare_offers.py", label="Compare offers: edit offers, weights and robustness")
+st.page_link("pages/3_Hedge.py", label="Hedge: how much to sign, CVaR floor and frontier")
+st.page_link("pages/4_Backtest_and_checks.py", label="Backtest and checks: forecast error, yield, benchmarks")
+st.page_link("pages/5_Report.py", label="Report: download the customer PDF (IT/EN)")
 st.markdown("Term sheet (EN/IT) — in docs/")
 st.caption(common.SOURCES)

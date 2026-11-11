@@ -46,6 +46,7 @@ with st.sidebar:
 
 prices, is_synthetic = store.load_prices(zone)
 common.header("Asset value", is_synthetic)
+st.caption(common.TYPICAL_YEAR_NOTE)
 st.caption("The solar profile is the Puglia site's unless lat/lon are changed; the zone selector changes prices only.")
 
 if tech == "Solar":
@@ -57,6 +58,9 @@ else:
         st.info("Wind profile not built yet (run scripts/build_wind_proxy.py). Choose Solar to continue.")
         st.stop()
 
+weather_energy = common.weather_year_energy(gen)  # P50/P90 come from the real weather years
+if tech == "Solar":
+    gen = common.align_to_prices(gen, prices)  # typical weather year on every price year
 try:
     summary = yearly_summary(prices, gen)
 except ValueError as err:
@@ -80,8 +84,7 @@ fig = go.Figure(go.Bar(x=years, y=summary["zero_or_negative_hours"]))
 fig.update_layout(title="Hours with price at or below zero", yaxis_title="hours")
 left.plotly_chart(fig, width="stretch")
 
-full = summary[summary["hours"] >= 8700]
-levels = p_levels((full if not full.empty else summary)["gen_mwh"])
+levels = p_levels(weather_energy if len(weather_energy) else summary["gen_mwh"])
 fig = go.Figure(go.Bar(x=["P90", "P50"], y=[levels["P90"], levels["P50"]]))
 fig.update_layout(title="Annual production (MWh)", yaxis_title="MWh/yr")
 right.plotly_chart(fig, width="stretch")

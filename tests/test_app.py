@@ -65,3 +65,28 @@ def test_win_share_bar_text_marks_fragile_winner():
     from common import win_share_bar_text
     assert win_share_bar_text(pd.Series([0.6, 0.4]), 0.70) == ["fragile", ""]
     assert win_share_bar_text(pd.Series([0.8, 0.2]), 0.70) == ["", ""]
+
+
+@pytest.mark.parametrize("page", ["pages/3_Hedge.py", "pages/4_Backtest_and_checks.py", "pages/5_Report.py"])
+def test_more_pages_run(page):
+    at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=60).run()
+    assert not at.exception
+    assert any("Not trading advice" in m.value for m in at.caption)
+
+
+def test_hedge_infeasible_floor_shows_error():
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_Hedge.py"), default_timeout=60).run()
+    at.number_input(key="cvar_floor_override").set_value(1e12).run()
+    assert any("No mix of these offers" in e.value for e in at.error)
+
+
+def test_hedge_default_is_feasible():
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_Hedge.py"), default_timeout=60).run()
+    assert len(at.error) == 0
+
+
+def test_home_uses_latest_price_year():
+    from common import get_home_yearly
+    prices_last = get_home_yearly("SUD").index.max()
+    from ppa_italia.data import store
+    assert prices_last == store.load_prices("SUD")[0].index.year.max()
