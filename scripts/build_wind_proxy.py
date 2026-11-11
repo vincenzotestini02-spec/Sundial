@@ -13,15 +13,17 @@ from pathlib import Path
 
 import pandas as pd
 
-from ppa_italia.data.entsoe import ZONES, make_client, to_hourly
+from ppa_italia.data.entsoe import ZONES, capacity_for_year, make_client, to_hourly
 
 ROOT = Path(__file__).resolve().parents[1]
 WIND_ONSHORE = "B19"
 
 
 def _as_series(x: pd.Series | pd.DataFrame) -> pd.Series:
-    """entsoe-py may return a one-column DataFrame; reduce it to a Series."""
-    return x.iloc[:, 0] if isinstance(x, pd.DataFrame) else x
+    """entsoe-py may return a DataFrame; reduce it to a Series, preferring "Actual Aggregated"."""
+    if isinstance(x, pd.DataFrame):
+        return x["Actual Aggregated"] if "Actual Aggregated" in x.columns else x.iloc[:, 0]
+    return x
 
 
 def main() -> None:
@@ -48,8 +50,9 @@ def main() -> None:
                 area, start=pd.Timestamp(year, 1, 1, tz="Europe/Rome"), end=pd.Timestamp(year + 1, 1, 1, tz="Europe/Rome"),
                 psr_type=WIND_ONSHORE,
             ))
-            parts.append((gen / float(cap.iloc[-1])).clip(0, 1))
-            print(f"{zone} {year}: {len(gen)} hours, installed {float(cap.iloc[-1]):,.0f} MW")
+            installed = capacity_for_year(cap, year)
+            parts.append((gen / installed).clip(0, 1))
+            print(f"{zone} {year}: {len(gen)} hours, installed {installed:,.0f} MW")
         cf = pd.concat(parts)
         cf = cf[~cf.index.duplicated()].sort_index().rename("cf").rename_axis("utc_hour")
         cf.to_frame().to_parquet(out / f"wind_cf_{zone}.parquet")

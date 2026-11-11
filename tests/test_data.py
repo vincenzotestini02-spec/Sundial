@@ -3,7 +3,7 @@ import pytest
 import requests
 
 from ppa_italia.data import pvgis, store
-from ppa_italia.data.entsoe import to_hourly
+from ppa_italia.data.entsoe import capacity_for_year, to_hourly
 from ppa_italia.data.pvgis import parse_hourly
 from ppa_italia.data.synthetic import make_synthetic_prices
 
@@ -63,3 +63,20 @@ def test_pvgis_error_on_http_failure(monkeypatch):
     monkeypatch.setattr(pvgis.requests, "get", lambda *a, **k: R())
     with pytest.raises(pvgis.PvgisError):
         pvgis.fetch_hourly_pv(0.0, -30.0, 1000, 2020, 2020)
+
+
+def _cap(years, values):
+    return pd.Series(values, index=pd.DatetimeIndex([f"{y}-01-01" for y in years], tz="Europe/Rome"), dtype=float)
+
+
+def test_capacity_for_year_picks_that_year():
+    assert capacity_for_year(_cap([2023, 2024, 2025], [10, 20, 30]), 2024) == 20.0
+
+
+def test_capacity_for_year_falls_back_to_earlier():
+    assert capacity_for_year(_cap([2023], [10]), 2024) == 10.0
+
+
+def test_capacity_for_year_raises_when_none_earlier():
+    with pytest.raises(ValueError):
+        capacity_for_year(_cap([2026], [10]), 2024)

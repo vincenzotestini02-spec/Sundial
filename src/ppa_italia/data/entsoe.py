@@ -41,3 +41,16 @@ def fetch_day_ahead(zone: str, start: str, end: str, token: str | None = None) -
         ZONES[zone], start=pd.Timestamp(start, tz="Europe/Rome"), end=pd.Timestamp(end, tz="Europe/Rome")
     )
     return to_hourly(raw).rename(f"da_{zone}")
+
+
+def capacity_for_year(cap: pd.Series, year: int) -> float:
+    """Return installed MW valid for ``year`` from a capacity series indexed by date.
+
+    Uses the row whose index year equals ``year``, else the nearest earlier row.
+    Raises ValueError if no row is dated on or before ``year``.
+    """
+    years = pd.DatetimeIndex(cap.index).year
+    eligible = cap[years <= year]
+    if eligible.empty:
+        raise ValueError(f"no installed capacity on or before {year}")
+    return float(eligible.sort_index().iloc[-1])
