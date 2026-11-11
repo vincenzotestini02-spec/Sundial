@@ -21,6 +21,28 @@ def to_8760(s: pd.Series) -> dict[int, np.ndarray]:
     return out
 
 
+def profile_on_years(gen: pd.Series, years: list[int]) -> pd.Series:
+    """Stamp a typical (median-energy) weather year onto the given calendar years.
+
+    The weather year whose annual energy is the median of the complete years is
+    chosen (with an even count, the lower-middle one by sorted energy). Its
+    8760-hour profile is repeated for every requested year as an hourly UTC
+    Series. In leap years the 29 Feb hours repeat the profile of 28 Feb.
+    """
+    complete = to_8760(gen)
+    if not complete:
+        raise ValueError("no complete generation year (8760 hours) found")
+    by_energy = sorted(complete.items(), key=lambda kv: kv[1].sum())
+    profile = by_energy[(len(by_energy) - 1) // 2][1]
+    feb28_end = (31 + 28) * 24  # hours before 1 Mar in a non-leap year
+    leap_profile = np.concatenate([profile[:feb28_end], profile[feb28_end - 24:feb28_end], profile[feb28_end:]])
+    parts = []
+    for year in sorted(set(years)):
+        idx = pd.date_range(f"{year}-01-01", f"{year}-12-31 23:00", freq="h", tz="UTC")
+        parts.append(pd.Series(leap_profile if len(idx) == 8784 else profile, index=idx))
+    return pd.concat(parts)
+
+
 def rescale_to_level(year_prices: np.ndarray, level: float) -> np.ndarray:
     """Multiply a year of prices so that its mean equals `level`.
 

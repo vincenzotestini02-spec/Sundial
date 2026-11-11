@@ -64,3 +64,36 @@ def test_build_scenarios_requires_complete_years():
         build_scenarios(_year(2025).iloc[:100], _year(2010))
     with pytest.raises(ValueError):
         build_scenarios(_year(2025), _year(2010).iloc[:100])
+
+
+def _varied_gen():
+    """Three weather years with different constant levels: 10, 20, 30 per hour."""
+    return pd.concat([_year(2005, 10.0), _year(2006, 20.0), _year(2007, 30.0)])
+
+
+def test_profile_on_years_covers_requested_years_hourly_utc():
+    from ppa_italia.scenarios import profile_on_years
+    out = profile_on_years(_varied_gen(), [2021, 2024])
+    expected = pd.date_range("2021-01-01", "2021-12-31 23:00", freq="h", tz="UTC").append(
+        pd.date_range("2024-01-01", "2024-12-31 23:00", freq="h", tz="UTC"))
+    assert out.index.equals(expected)
+
+
+def test_profile_on_years_uses_median_weather_year_energy():
+    from ppa_italia.scenarios import profile_on_years
+    out = profile_on_years(_varied_gen(), [2021, 2024])
+    assert out[out.index.year == 2021].sum() == pytest.approx(20.0 * 8760)
+    assert out[out.index.year == 2024].sum() == pytest.approx(20.0 * 8784)  # leap day = 28 Feb profile
+
+
+def test_profile_on_years_even_count_takes_lower_middle():
+    from ppa_italia.scenarios import profile_on_years
+    gen = pd.concat([_year(2005, 10.0), _year(2006, 20.0), _year(2007, 30.0), _year(2008, 40.0)])
+    out = profile_on_years(gen, [2022])
+    assert out.sum() == pytest.approx(20.0 * 8760)
+
+
+def test_profile_on_years_constant_profile_reproduces_constant():
+    from ppa_italia.scenarios import profile_on_years
+    out = profile_on_years(_year(2010, 7.0), [2021, 2022, 2024])
+    assert (out == 7.0).all()
