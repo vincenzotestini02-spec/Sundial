@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from ppa_italia.credit import npv_net_of_credit
 from ppa_italia.data import store
 from ppa_italia.example import ExampleCase, load_example
 from ppa_italia.hedge import frontier, merchant_breakeven_price
@@ -61,11 +62,14 @@ def get_home_yearly(zone: str) -> pd.DataFrame:
 
 @st.cache_resource
 def get_npvs(zone: str) -> tuple[np.ndarray, np.ndarray]:
-    """NPV per scenario: (n, k) matrix for the example offers and the (n,) all-merchant vector."""
+    """NPV net of credit loss per scenario: (n, k) for the example offers, (n,) all-merchant.
+
+    Same objective as recommend(), so Home, Hedge and Report agree.
+    """
     case = get_example(zone)
     sc, m, h = case.scenarios, case.market, case.horizon
-    offers = np.column_stack([npv(o, sc, m, h) for o in case.offers])
-    return offers, npv(None, sc, m, h)
+    offers = np.column_stack([npv_net_of_credit(o, sc, m, h) for o in case.offers])
+    return offers, npv_net_of_credit(None, sc, m, h)
 
 
 @st.cache_resource
