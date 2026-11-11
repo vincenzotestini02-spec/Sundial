@@ -24,6 +24,22 @@ def to_hourly(prices: pd.Series) -> pd.Series:
     return s.resample("h").mean().dropna()
 
 
+def fill_short_gaps(s: pd.Series, max_hours: int = 6) -> tuple[pd.Series, int]:
+    """Reindex to a complete hourly UTC index and linearly fill gaps of <= max_hours.
+
+    Longer gaps stay NaN. Returns the series and the number of hours filled.
+    """
+    full = s.reindex(pd.date_range(s.index.min(), s.index.max(), freq="h", tz="UTC"))
+    missing = full.isna()
+    # run id of consecutive missing hours; run length per missing hour
+    run_id = (missing != missing.shift()).cumsum()
+    run_len = missing.groupby(run_id).transform("sum")
+    fillable = missing & (run_len <= max_hours)
+    interpolated = full.interpolate(method="linear", limit_area="inside")
+    out = full.where(~fillable, interpolated)
+    return out.rename(s.name), int(fillable.sum())
+
+
 def make_client(token: str | None = None):
     """Return an EntsoePandasClient; raise RuntimeError if no token is available."""
     token = token or os.environ.get("ENTSOE_TOKEN")

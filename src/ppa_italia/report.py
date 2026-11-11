@@ -15,9 +15,12 @@ FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 MERCHANT_THRESHOLD = 0.01  # below this share the advice is to stay merchant
 
 
-def _fmt(x: float, na: str, nd: int = 1) -> str:
-    """Format a number with nd decimals, or `na` if NaN."""
-    return na if x is None or math.isnan(x) else f"{x:.{nd}f}"
+def _fmt(x: float, na: str, nd: int = 1, lang: str = "en") -> str:
+    """Format a number with nd decimals (comma for Italian, dot for English), or `na` if NaN."""
+    if x is None or math.isnan(x):
+        return na
+    s = f"{x:.{nd}f}"
+    return s.replace(".", ",") if lang == "it" else s
 
 
 def _heading_body(pdf: FPDF, block: str) -> None:
@@ -73,9 +76,9 @@ def build_report(
     # 1. Situation: capture-rate trend
     cr = summary["capture_rate"].dropna()
     latest = float(cr.iloc[-1]) * 100 if len(cr) else float("nan")
-    _heading_body(pdf, t["situation"].format(zone=zone, capture_rate=_fmt(latest, na, 0)))
+    _heading_body(pdf, t["situation"].format(zone=zone, capture_rate=_fmt(latest, na, 0, lang)))
     _table(pdf, (t["capture_trend"], "%"),
-           [(str(y), _fmt(float(v) * 100, na, 1)) for y, v in cr.items()])
+           [(str(y), _fmt(float(v) * 100, na, 1, lang)) for y, v in cr.items()])
 
     # 2. Options: LP shares per offer, plus the recommended offer
     shares = dict(rec.multi_offer_shares)
@@ -88,9 +91,9 @@ def build_report(
     key = "recommendation_merchant" if rec.share < MERCHANT_THRESHOLD else "recommendation"
     _heading_body(pdf, t[key].format(
         offer=rec.offer, share_pct=f"{rec.share * 100:.0f}",
-        fair_low=_fmt(rec.fair_low, na), fair_mid=_fmt(rec.fair_mid, na)))
+        fair_low=_fmt(rec.fair_low, na, 1, lang), fair_mid=_fmt(rec.fair_mid, na, 1, lang)))
     pdf.multi_cell(0, 5.5, t["breakeven"].format(
-        offer=rec.offer, breakeven=_fmt(rec.breakeven, na)), new_x="LMARGIN", new_y="NEXT")
+        offer=rec.offer, breakeven=_fmt(rec.breakeven, na, 1, lang)), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
     # 4. Risks, including the red-team paragraph

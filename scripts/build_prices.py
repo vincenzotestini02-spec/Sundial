@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ppa_italia.data.entsoe import fetch_day_ahead
+from ppa_italia.data.entsoe import fetch_day_ahead, fill_short_gaps
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +37,13 @@ def main() -> None:
                 sys.exit(str(err))
             print(f"{zone} {year}: {len(parts[-1])} hours")
         prices = pd.concat(parts)
-        prices = prices[~prices.index.duplicated()].sort_index().rename("price").rename_axis("utc_hour")
+        prices = prices[~prices.index.duplicated()].sort_index().rename("price")
+        original_index = prices.index
+        prices, filled = fill_short_gaps(prices, max_hours=6)  # gaps longer than 6 hours stay missing
+        filled_hours = prices.index[prices.notna() & ~prices.index.isin(original_index)]
+        by_year = pd.Series(1, index=filled_hours).groupby(filled_hours.year).sum()
+        print(f"{zone}: filled {filled} short-gap hours" + "".join(f" | {y}: {n}" for y, n in by_year.items()))
+        prices = prices.dropna().rename_axis("utc_hour")
         prices.to_frame().to_parquet(out / f"prices_{zone}.parquet")
 
 

@@ -45,3 +45,11 @@ def test_sign_headline_italian_accents():
     _, text = _text(build_report(rec, SUMMARY, "SUD", "it", is_synthetic=False))
     assert "Firmare l'offerta A per il 70% della produzione." in text
     assert "è" in text or "à" in text
+
+
+def test_decimal_separator_follows_language():
+    rec = Recommendation("A", 0.7, 55.5, 60.4, 52.0, 0.82, False, {"A": 0.7}, False, 0.0)
+    _, it = _text(build_report(rec, SUMMARY, "SUD", "it", is_synthetic=False))
+    _, en = _text(build_report(rec, SUMMARY, "SUD", "en", is_synthetic=False))
+    assert "55,5" in it and "60,4" in it and "90,0" in it and "55.5" not in it
+    assert "55.5" in en and "60.4" in en and "90.0" in en and "55,5" not in en

@@ -1,9 +1,10 @@
+import numpy as np
 import pandas as pd
 import pytest
 import requests
 
 from ppa_italia.data import pvgis, store
-from ppa_italia.data.entsoe import capacity_for_year, to_hourly
+from ppa_italia.data.entsoe import capacity_for_year, fill_short_gaps, to_hourly
 from ppa_italia.data.pvgis import parse_hourly
 from ppa_italia.data.synthetic import make_synthetic_prices
 
@@ -80,3 +81,28 @@ def test_capacity_for_year_falls_back_to_earlier():
 def test_capacity_for_year_raises_when_none_earlier():
     with pytest.raises(ValueError):
         capacity_for_year(_cap([2026], [10]), 2024)
+
+
+def test_fill_short_gaps_interpolates_up_to_limit():
+    idx = pd.date_range("2024-01-01", periods=12, freq="h", tz="UTC")
+    s = pd.Series(np.arange(12, dtype=float), index=idx).drop(idx[[2, 3, 8, 9, 10]])
+    # gap of 2 hours (2,3) and gap of 3 hours (8,9,10); hour 11 stays as the last value
+    filled, n = fill_short_gaps(s, max_hours=6)
+    assert n == 5
+    assert len(filled) == 12 and filled.isna().sum() == 0
+    assert filled.iloc[2] == pytest.approx(2.0) and filled.iloc[9] == pytest.approx(9.0)
+
+
+def test_fill_short_gaps_leaves_long_gaps_missing():
+    idx = pd.date_range("2024-01-01", periods=20, freq="h", tz="UTC")
+    s = pd.Series(np.arange(20, dtype=float), index=idx).drop(idx[4:12])  # gap of 8 hours
+    filled, n = fill_short_gaps(s, max_hours=6)
+    assert n == 0
+    assert len(filled) == 20 and filled.isna().sum() == 8
+
+
+def test_fill_short_gaps_gap_of_exactly_six_is_filled():
+    idx = pd.date_range("2024-01-01", periods=10, freq="h", tz="UTC")
+    s = pd.Series([0.0] + [np.nan] * 6 + [7.0, 8.0, 9.0], index=idx).dropna()
+    filled, n = fill_short_gaps(s, max_hours=6)
+    assert n == 6 and filled.isna().sum() == 0 and filled.iloc[3] == pytest.approx(3.0)
