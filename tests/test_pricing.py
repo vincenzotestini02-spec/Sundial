@@ -2,13 +2,16 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ppa_italia.pricing import PapAssumptions, backtest_trailing_capture, fair_pap_price, p_levels
+from ppa_italia.pricing import backtest_trailing_capture, fair_price_range, p_levels
+from ppa_italia.structures import Market
 
 
-def test_fair_pap_price():
-    a = PapAssumptions(imbalance_cost=3, risk_discount=5, margin=2, goo_value=1)
-    assert fair_pap_price(80, a) == pytest.approx(71)
-    assert fair_pap_price(80, PapAssumptions(goo_value=1, goo_transferred=False)) == pytest.approx(80)
+def test_fair_price_range_hand_computed():
+    cap = np.arange(1.0, 101.0)  # P50 = 50.5, P10 = 10.9
+    m = Market(imbalance_cost=3.0, goo_value=1.0, margin=2.0)
+    low, mid = fair_price_range(cap, m)
+    assert mid == pytest.approx(50.5 - 3 - 2 + 1)
+    assert low == pytest.approx(mid - (50.5 - 10.9))
 
 
 def test_p90_is_below_p50():

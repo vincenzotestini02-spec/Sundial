@@ -1,38 +1,30 @@
-"""Indicative pay-as-produced PPA pricing and an honest backtest.
+"""Indicative pay-as-produced PPA price range and an honest backtest.
 
-Seller's view of a pay-as-produced (PaP) PPA, all in EUR/MWh:
-
-    fair PaP price = expected capture price
-                     - imbalance cost (if the seller keeps balancing responsibility)
-                     - profile/volume risk discount
-                     - buyer margin
-                     + GoO value (if guarantees of origin are transferred to the buyer)
-
-Every input is an assumption documented with its source in docs/methodology.md.
-Indicative only: not trading advice and not any company's pricing.
+Fair price = P50 capture - imbalance cost - margin (+ GoO value if transferred),
+with the low end shifted down by the P50-P10 capture gap. Every input is an
+assumption documented in docs/methodology.md. Indicative only: not trading advice.
 """
 from __future__ import annotations
-
-from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
+from ppa_italia.structures import Market
 from ppa_italia.value import yearly_summary
 
 
-@dataclass(frozen=True)
-class PapAssumptions:
-    imbalance_cost: float = 0.0
-    risk_discount: float = 0.0
-    margin: float = 0.0
-    goo_value: float = 0.0
-    goo_transferred: bool = True
+def fair_price_range(capture_by_scenario: np.ndarray, m: Market, goo_transferred: bool = True) -> tuple[float, float]:
+    """Fair pay-as-produced price range (low, mid) in EUR/MWh.
 
-
-def fair_pap_price(expected_capture: float, a: PapAssumptions) -> float:
-    goo = a.goo_value if a.goo_transferred else 0.0
-    return expected_capture - a.imbalance_cost - a.risk_discount - a.margin + goo
+    mid = P50 capture - imbalance cost - margin (+ GoO value if transferred);
+    low = mid minus the gap between the P50 and P10 capture price.
+    """
+    cap = np.asarray(capture_by_scenario, dtype=float)
+    p50 = float(np.percentile(cap, 50))
+    p10 = float(np.percentile(cap, 10))
+    goo = m.goo_value if goo_transferred else 0.0
+    mid = p50 - m.imbalance_cost - m.margin + goo
+    return mid - (p50 - p10), mid
 
 
 def p_levels(values: pd.Series) -> dict[str, float]:
