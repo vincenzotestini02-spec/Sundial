@@ -69,7 +69,7 @@ All sources: [docs/data-sources.md](docs/data-sources.md). Price benchmarks: [do
 
 | What | Judge | Result |
 |---|---|---|
-| All models | Unit tests with hand-computed answers, run in CI | 90 tests pass (synthetic data) |
+| All models | Unit tests with hand-computed answers, run in CI | 106 tests pass (synthetic data) |
 | Solar profile | Specific yield vs plausible Puglia fixed-tilt range of 1,400-1,600 kWh/kWp | 1,468 kWh/kWp, pass |
 | Pricing anchor | Backtest error of trailing capture price | Pending real data |
 | Fair PPA range | Publicly reported Italian solar PPA levels | Pending real data; one dated, caveated figure so far (LevelTen Q4 2025, 60.67 EUR/MWh via pv magazine), see benchmarks. The synthetic fair range is not comparable with the LevelTen figure: different price data, structure and percentile. |
