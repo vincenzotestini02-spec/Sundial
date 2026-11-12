@@ -1,10 +1,12 @@
 """Streamlit AppTest checks: every page runs on the default example and never crashes."""
 import dataclasses
+import shutil
 import sys
 from pathlib import Path
 
 import pandas as pd
 import pytest
+import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from ppa_italia.data.pvgis import PvgisError
@@ -138,3 +140,97 @@ def test_asset_page_hides_wind_without_profile_and_no_dev_instructions():
     texts = [m.value for m in at.caption] + [m.value for m in at.info]
     assert not any("scripts/" in t for t in texts)
     assert any("share the same synthetic price series" in t for t in texts)
+
+
+HOME = str(ROOT / "app" / "Home.py")
+ALL_PAGES = [HOME] + [str(ROOT / "app" / "pages" / p) for p in (
+    "1_Asset_value.py", "2_Compare_offers.py", "3_Hedge.py", "4_Backtest_and_checks.py", "5_Report.py")]
+
+
+@pytest.fixture
+def data_copy(tmp_path, monkeypatch, fixture_data_dir):
+    """A private copy of the fixture data dir that the app reads; caches are cleared before and after."""
+    dest = tmp_path / "data"
+    shutil.copytree(fixture_data_dir, dest)
+    monkeypatch.setenv("SUNDIAL_DATA_DIR", str(dest))
+    monkeypatch.delenv("SUNDIAL_FORCE_SYNTHETIC", raising=False)
+    st.cache_resource.clear()
+    yield dest
+    st.cache_resource.clear()
+
+
+@pytest.mark.parametrize("region,zone", [("Puglia", "SUD"), ("Sicilia", "SICI"), ("Lombardia", "NORD"),
+                                         ("Sardegna", "SARD")])
+def test_home_renders_for_region(region, zone, data_copy):
+    at = AppTest.from_file(HOME, default_timeout=120)
+    at.run()
+    at.sidebar.selectbox(key="region").set_value(region).run()
+    assert not at.exception
+    assert any(zone in m.value or region in m.value for m in [*at.markdown, *at.caption])
+    assert len(at.warning) == 0
+
+
+@pytest.mark.parametrize("page", ALL_PAGES)
+def test_every_page_uses_the_sidebar_region(page):
+    at = AppTest.from_file(page, default_timeout=120).run()
+    assert not at.exception and at.sidebar.selectbox(key="region").value == "Puglia"
+
+
+def test_region_persists_across_pages(data_copy):
+    at = AppTest.from_file(HOME, default_timeout=120)
+    at.run()
+    at.sidebar.selectbox(key="region").set_value("Sicilia").run()
+    assert "SICI" in at.sidebar.caption[0].value
+
+
+def test_zone_without_prices_falls_back_with_banner(data_copy):
+    (data_copy / "prices_SARD.parquet").unlink()
+    at = AppTest.from_file(HOME, default_timeout=120)
+    at.run()
+    at.sidebar.selectbox(key="region").set_value("Sardegna").run()
+    assert not at.exception
+    assert any("SYNTHETIC" in i.value for i in at.info) and len(at.warning) == 0
+
+
+def test_footer_without_manifest(data_copy):
+    (data_copy / "manifest.json").unlink()
+    at = AppTest.from_file(HOME, default_timeout=120).run()
+    assert not at.exception
+    assert any(c.value == "Data source: unknown (no manifest)" for c in at.caption)
+
+
+def test_footer_with_manifest(data_copy):
+    at = AppTest.from_file(HOME, default_timeout=120).run()
+    assert any(c.value.startswith("Data: ENTSO-E Transparency Platform (") for c in at.caption)
+
+
+def test_status_notes_name_fallback_years_and_imbalance():
+    from common import status_notes
+    case = dataclasses.replace(load_example("SUD"), fallback_years=[2021, 2022], imbalance_source="placeholder")
+    notes = status_notes(case)
+    assert any("2021, 2022" in n for n in notes) and any("Imbalance" in n for n in notes)
+    assert status_notes(dataclasses.replace(case, fallback_years=[], imbalance_source="computed")) == []
+
+
+def test_asset_page_shows_zonal_solar_chart(data_copy):
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "1_Asset_value.py"), default_timeout=120).run()
+    assert not at.exception
+    assert at.sidebar.number_input(key="lat").value == pytest.approx(41.46)
+    assert any("Zonal solar production" in str(c.proto.spec) for c in at.get("plotly_chart"))
+
+
+def test_asset_page_coordinates_follow_region(data_copy):
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "1_Asset_value.py"), default_timeout=120).run()
+    at.sidebar.selectbox(key="region").set_value("Lombardia").run()
+    assert at.sidebar.number_input(key="lat").value == pytest.approx(45.16)
+
+
+def test_hedge_shows_cap_note_and_slider_includes_floor(data_copy):
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "3_Hedge.py"), default_timeout=120).run()
+    assert not at.exception
+    from common import get_recommendation
+    rec = get_recommendation("SUD")
+    if rec.floor_capped:
+        assert any("not reachable" in i.value for i in at.info)
+    if at.slider:
+        assert at.slider[0].min <= rec.cvar_floor / 1e6 <= at.slider[0].max

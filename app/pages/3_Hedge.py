@@ -19,15 +19,18 @@ INFEASIBLE_MSG = (
     "Lower the floor or add an offer with a higher guaranteed price."
 )
 
-zone = common.DEFAULT_ZONE
+zone = common.region_selector()
 case = common.get_example(zone)
-common.header("Hedge", case.is_synthetic)
+common.header("Hedge", case)
 st.write(
     "Choose how bad the worst 10% of outcomes may be (the CVaR floor, in M€ of NPV). "
     "The optimiser then picks the PPA mix with the highest expected value that respects it."
 )
 
 rec = common.get_recommendation(zone)
+note = common.floor_note(case, rec)
+if note:
+    st.info(note)
 npv_offers, npv_merchant = common.get_npvs(zone)
 alpha = case.market.cvar_alpha
 names = [o.name for o in case.offers]
@@ -35,7 +38,8 @@ win_idx = names.index(rec.offer)
 npv_win = npv_offers[:, [win_idx]]
 
 lo = cvar(npv_merchant, alpha)
-hi = max(max_cvar(npv_win, npv_merchant, alpha), lo)
+hi = max(max_cvar(npv_win, npv_merchant, alpha), lo, rec.cvar_floor)
+lo = min(lo, rec.cvar_floor)
 default = min(max(rec.cvar_floor, lo), hi)
 
 if hi > lo:
@@ -102,3 +106,4 @@ st.dataframe(
     width="stretch",
 )
 st.caption(common.SOURCES)
+common.footer()

@@ -11,9 +11,9 @@ from ppa_italia.report import build_report  # noqa: E402
 
 st.set_page_config(page_title="Report", layout="wide")
 
-zone = common.DEFAULT_ZONE
+zone = common.region_selector()
 case = common.get_example(zone)
-common.header("Report", case.is_synthetic)
+common.header("Report", case)
 st.caption(common.TYPICAL_YEAR_NOTE)
 
 choice = st.radio("Language", ["Italiano", "English"], horizontal=True, key="report_lang")
@@ -28,3 +28,4 @@ st.download_button(
 )
 common.term_sheet_expanders()
 st.caption(common.SOURCES)
+common.footer()

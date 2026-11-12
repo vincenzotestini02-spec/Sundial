@@ -15,6 +15,7 @@ from ppa_italia.hedge import frontier, merchant_breakeven_price
 from ppa_italia.recommend import Recommendation, recommend
 from ppa_italia.scenarios import profile_on_years, to_8760
 from ppa_italia.structures import Offer
+from ppa_italia.zones import REGION_TO_ZONE, ZONE_SITE, zone_of
 from ppa_italia.value import yearly_summary
 
 DISCLAIMER = "Indicative, educational, built on public data. Not trading advice and not any company's pricing."
@@ -22,13 +23,15 @@ SYNTHETIC_LABEL = "SYNTHETIC — placeholder until ENTSO-E data"
 TYPICAL_YEAR_NOTE = "Capture rates use a typical (median) weather year applied to every price year."
 SOURCES = "Sources: PVGIS © European Union; ENTSO-E Transparency Platform."
 DEFAULT_ZONE = "SUD"
+DEFAULT_REGION = "Puglia"
+IMBALANCE_NOTE = "Imbalance cost is a placeholder assumption: no imbalance prices are available for this zone."
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 TERM_SHEETS = {"Term sheet (EN)": DOCS / "term-sheet-en.md", "Term sheet (IT)": DOCS / "term-sheet-it.md"}
 
 
 @st.cache_resource
 def get_example(zone: str) -> ExampleCase:
-    """Load the Puglia example for a zone once per server process."""
+    """Load the example case for a zone once per server process."""
     return load_example(zone)
 
 
@@ -51,9 +54,10 @@ def weather_year_energy(gen: pd.Series) -> pd.Series:
 
 @st.cache_resource
 def get_aligned_solar(zone: str) -> pd.Series:
-    """The Puglia solar profile stamped onto the zone's price years."""
+    """The zone's site solar profile (example capacity) stamped onto the zone's price years."""
     prices, _ = store.load_prices(zone)
-    return align_to_prices(store.load_solar_puglia(), prices)
+    site = store.load_site_profile(zone) * get_example(zone).capacity_mw
+    return align_to_prices(site, prices)
 
 
 @st.cache_resource
@@ -61,6 +65,59 @@ def get_home_yearly(zone: str) -> pd.DataFrame:
     """Yearly capture summary of the example solar plant for a zone, on the aligned profile."""
     prices, _ = store.load_prices(zone)
     return yearly_summary(prices, get_aligned_solar(zone))
+
+
+def region_selector() -> str:
+    """Sidebar region selectbox (key "region", default Puglia); returns the region's bidding zone.
+
+    Must be called first on every page so the choice persists across pages via session_state.
+    """
+    regions = list(REGION_TO_ZONE)
+    region = st.sidebar.selectbox("Region", regions, index=regions.index(DEFAULT_REGION), key="region")
+    zone = zone_of(region)
+    st.sidebar.caption(f"Bidding zone {zone}; solar site {ZONE_SITE[zone][0]}.")
+    return zone
+
+
+def status_notes(case: ExampleCase) -> list[str]:
+    """Notes on which data components are real: zonal-solar fallback years and the imbalance placeholder.
+
+    The synthetic-price banner is shown separately by `header`.
+    """
+    notes: list[str] = []
+    if case.fallback_years:
+        years = ", ".join(str(y) for y in case.fallback_years)
+        notes.append(f"Zonal solar production is missing for {years}: those years use the PVGIS site profile "
+                     f"({ZONE_SITE[case.zone][0]}) instead.")
+    if case.imbalance_source != "computed":
+        notes.append(IMBALANCE_NOTE)
+    return notes
+
+
+def footer() -> None:
+    """Caption naming the data source and period from the manifest, or that it is unknown."""
+    manifest = store.load_manifest()
+    if not manifest:
+        st.caption("Data source: unknown (no manifest)")
+        return
+    firsts = [f["first"] for f in manifest.get("files", {}).values()]
+    lasts = [f["last"] for f in manifest.get("files", {}).values()]
+    first = min(firsts)[:10] if firsts else "?"
+    last = max(lasts)[:10] if lasts else "?"
+    built = str(manifest.get("built_utc", "?"))[:10]
+    st.caption(f"Data: ENTSO-E Transparency Platform ({manifest.get('source', '?')}), {first} → {last}, built {built}")
+
+
+def floor_note(case: ExampleCase, rec: Recommendation) -> str | None:
+    """Explanation shown when the default CVaR floor target is not reachable with these offers."""
+    if not rec.floor_capped:
+        return None
+    gamma = case.market.cvar_floor_share_of_mean
+    merchant_mean = float(get_npvs(case.zone)[1].mean())
+    reached = rec.cvar_floor / merchant_mean * 100 if merchant_mean > 0 else float("nan")
+    return (f"The bank-style target (worst-10% NPV at least {gamma * 100:.0f}% of the mean merchant NPV) is not "
+            f"reachable with these offers. The recommendation hedges as much as possible, reaching "
+            f"{reached:.0f}% (best achievable worst-10% NPV over mean merchant NPV).")
 
 
 @st.cache_resource
@@ -95,12 +152,14 @@ def get_breakevens(zone: str) -> dict[str, float]:
     return out
 
 
-def header(title: str, is_synthetic: bool) -> None:
-    """Page title, disclaimer, and the synthetic-data banner when prices are placeholders."""
+def header(title: str, case: ExampleCase) -> None:
+    """Page title, disclaimer, the synthetic-price banner and the per-component data notes (all st.info)."""
     st.title(title)
     st.caption(DISCLAIMER)
-    if is_synthetic:
+    if case.is_synthetic:
         st.info(SYNTHETIC_LABEL)
+    for note in status_notes(case):
+        st.info(note)
 
 
 def headline(rec: Recommendation) -> str:

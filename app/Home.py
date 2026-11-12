@@ -12,13 +12,13 @@ from ppa_italia.pricing import p_levels  # noqa: E402
 
 st.set_page_config(page_title="Sundial", layout="wide")
 
-zone = common.DEFAULT_ZONE
+zone = common.region_selector()
 case = common.get_example(zone)
-common.header("Sundial: value an Italian renewable PPA", case.is_synthetic)
+common.header("Sundial: value an Italian renewable PPA", case)
 
 st.subheader("The customer's question")
 st.write(
-    "A 20 MW solar park in Puglia (zone SUD) has received several PPA offers. "
+    f"A {case.capacity_mw:g} MW solar park in {st.session_state['region']} (zone {zone}) has received several PPA offers. "
     "Which one should it sign, for how much of its production, and what is a fair price?"
 )
 
@@ -30,6 +30,9 @@ except Exception as err:  # never crash on the landing page
     st.stop()
 
 st.markdown(common.headline(rec))
+note = common.floor_note(case, rec)
+if note:
+    st.info(note)
 winner = common.offer_by_name(case.offers, rec.offer)
 st.markdown(common.breakeven_line(rec, winner.structure))
 if rec.fragile:
@@ -38,7 +41,7 @@ if rec.fragile:
 full = yearly[yearly["hours"] >= 8700]
 used = full if not full.empty else yearly
 latest = used.iloc[-1]
-p50 = p_levels(common.weather_year_energy(store.load_solar_puglia()))["P50"]
+p50 = p_levels(common.weather_year_energy(store.load_site_profile(zone) * case.capacity_mw))["P50"]
 c1, c2, c3 = st.columns(3)
 c1.metric(f"Capture rate {int(latest.name)}", f"{latest['capture_rate'] * 100:.0f}%")
 c2.metric("P50 production", f"{p50:,.0f} MWh/yr")
@@ -53,3 +56,4 @@ st.page_link("pages/4_Backtest_and_checks.py", label="Backtest and checks: forec
 st.page_link("pages/5_Report.py", label="Report: download the customer PDF (IT/EN)")
 common.term_sheet_expanders()
 st.caption(common.SOURCES)
+common.footer()
