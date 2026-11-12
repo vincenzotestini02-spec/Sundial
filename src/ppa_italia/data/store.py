@@ -1,6 +1,7 @@
 """Load precomputed data files, with a synthetic fallback for prices."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -11,9 +12,12 @@ PRECOMPUTED = Path(__file__).resolve().parents[3] / "data" / "precomputed"
 
 
 def load_prices(zone: str) -> tuple[pd.Series, bool]:
-    """Return (hourly UTC prices in EUR/MWh, is_synthetic) for a bidding zone."""
+    """Return (hourly UTC prices in EUR/MWh, is_synthetic) for a bidding zone.
+
+    Setting the env var SUNDIAL_FORCE_SYNTHETIC=1 ignores real price files (used by the tests).
+    """
     path = PRECOMPUTED / f"prices_{zone}.parquet"
-    if path.exists():
+    if path.exists() and os.environ.get("SUNDIAL_FORCE_SYNTHETIC") != "1":
         return pd.read_parquet(path)["price"], False
     return make_synthetic_prices(), True
 

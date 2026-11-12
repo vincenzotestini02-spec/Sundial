@@ -43,6 +43,7 @@ def test_load_prices_reads_parquet(tmp_path, monkeypatch):
     idx = pd.date_range("2024-01-01", periods=3, freq="h", tz="UTC")
     pd.Series([1.0, 2.0, 3.0], index=idx, name="price").to_frame().to_parquet(tmp_path / "prices_SUD.parquet")
     monkeypatch.setattr(store, "PRECOMPUTED", tmp_path)
+    monkeypatch.delenv("SUNDIAL_FORCE_SYNTHETIC", raising=False)
     s, synthetic = store.load_prices("SUD")
     assert synthetic is False and list(s) == [1.0, 2.0, 3.0]
 
@@ -106,3 +107,12 @@ def test_fill_short_gaps_gap_of_exactly_six_is_filled():
     s = pd.Series([0.0] + [np.nan] * 6 + [7.0, 8.0, 9.0], index=idx).dropna()
     filled, n = fill_short_gaps(s, max_hours=6)
     assert n == 6 and filled.isna().sum() == 0 and filled.iloc[3] == pytest.approx(3.0)
+
+
+def test_force_synthetic_env_ignores_real_price_files(tmp_path, monkeypatch):
+    idx = pd.date_range("2024-01-01", periods=3, freq="h", tz="UTC")
+    pd.Series([1.0, 2.0, 3.0], index=idx, name="price").to_frame().to_parquet(tmp_path / "prices_SUD.parquet")
+    monkeypatch.setattr(store, "PRECOMPUTED", tmp_path)
+    monkeypatch.setenv("SUNDIAL_FORCE_SYNTHETIC", "1")
+    _, synthetic = store.load_prices("SUD")
+    assert synthetic is True
