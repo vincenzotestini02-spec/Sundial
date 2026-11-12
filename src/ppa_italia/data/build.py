@@ -7,7 +7,7 @@ so they write identical files:
     solar_zone_{zone}.parquet    column ``mw``     (actual solar generation)
     imbalance_{zone}.parquet     column ``price``  (single imbalance price, EUR/MWh)
     site_{zone}.parquet          column ``mwh_per_mwp`` (PVGIS, 1 MWp at the zone's site)
-    manifest.json                source, build time, first/last timestamp and rows per file
+    manifest.json                source, build time, first/last timestamp, rows and gap-filled hours per file
 """
 from __future__ import annotations
 
@@ -28,12 +28,12 @@ def _write_series(series_by_zone: dict[str, pd.Series], prefix: str, column: str
     for zone, s in series_by_zone.items():
         if s is None or s.empty:
             continue
-        filled, _ = entsoe.fill_short_gaps(s)
+        filled, n_filled = entsoe.fill_short_gaps(s)
         filled = filled.rename(column).rename_axis(None)
         name = f"{prefix}_{zone}.parquet"
         filled.to_frame().to_parquet(out_dir / name)
         files[name] = {"first": filled.index[0].isoformat(), "last": filled.index[-1].isoformat(),
-                       "rows": int(len(filled))}
+                       "rows": int(len(filled)), "filled_hours": n_filled}
 
 
 def write_zone_files(prices: dict[str, pd.Series], solar: dict[str, pd.Series],

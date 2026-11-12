@@ -38,7 +38,8 @@ def main() -> None:
         manifest = build_from_api(make_client(), args.zones, f"{args.start}-01",
                                   args.end or date.today().isoformat(), out)
     for name, info in sorted(manifest["files"].items()):
-        print(f"{name}: {info['rows']} rows, {info['first']} .. {info['last']}")
+        print(f"{name}: {info['rows']} rows, {info['first']} .. {info['last']}, "
+              f"{info.get('filled_hours', 0)} hours gap-filled")
     if args.sites:
         write_site_profiles(out)
         print("site profiles written")

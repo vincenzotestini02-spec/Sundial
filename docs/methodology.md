@@ -13,7 +13,7 @@ For hourly prices *p_h* (EUR/MWh) and generation *g_h* (MWh):
 
 **15-minute prices.** Since 1 Oct 2025 the day-ahead market clears in 15-minute steps. Prices are averaged to hourly (`data/entsoe.py: to_hourly`) to match hourly generation profiles. This smooths intra-hour price shape. *Limitation:* slightly understates intra-hour volatility; acceptable for indicative valuation.
 
-**Short data gaps.** `scripts/build_data.py` (File Library or API, `--source`) fills gaps of up to 6 consecutive missing hours by linear interpolation on a complete hourly UTC index (`fill_short_gaps`) and prints the hours filled per zone and year. Longer gaps stay missing, and incomplete years are not used as scenarios. *Limitation:* interpolation hides short real price spikes.
+**Short data gaps.** `scripts/build_data.py` (File Library or API, `--source`) fills gaps of up to 6 consecutive missing hours by linear interpolation on a complete hourly UTC index (`fill_short_gaps`) and prints the hours filled per file (zone and data kind) at the end of the build; the count is also stored as `filled_hours` in `manifest.json`. Longer gaps stay missing, and incomplete years are not used as scenarios. *Limitation:* interpolation hides short real price spikes.
 
 ## 2. Region, zone and solar profile (`zones.py`, `data/pvgis.py`)
 
@@ -21,7 +21,7 @@ For hourly prices *p_h* (EUR/MWh) and generation *g_h* (MWh):
 - **Representative site per zone** (`ZONE_SITE`): Mantova (NORD), Grosseto (CNOR), Viterbo (CSUD), Foggia (SUD), Crotone (CALA), Catania (SICI), Sassari (SARD). A typical utility-scale solar area of each zone; the park is a fictional 20 MWp plant.
 - PVGIS v5.3, PVGIS-SARAH3 radiation, crystalline silicon, fixed mounting at PVGIS-optimal angles, 14% system losses. Weather years 2005-2023 (19 years), per site. PVGIS (c) European Union.
 - SUD (Foggia): P50 29,335 MWh/yr, P90 28,095 MWh/yr (P90 is the value exceeded in 90% of years; the 10th percentile of the equally weighted scenario set, which is an actual weather-year energy. Interpolating between the 19 weather years instead gives 28,308 MWh/yr), mean specific yield 1,467 kWh/kWp, inter-annual variability 2.9%.
-- Check: specific yield inside the 1,400-1,600 kWh/kWp plausibility range for a fixed-tilt Puglia plant.
+- Check: specific yield inside the 1,100-1,800 kWh/kWp plausibility range, the same range the app uses on the Checks page. It is wide on purpose because the page runs for every zone: northern zones yield well below the southern zones and islands.
 - *Limitations:* no curtailment, no degradation (about 0.4-0.5%/yr typical), no availability losses beyond the 14% lump. The true judge would be metered data.
 
 ## 3. Price scenarios: "historical shape, current level" (`scenarios.py`)

@@ -77,7 +77,7 @@ All results below are on real ENTSO-E data, zone SUD unless stated.
 
 | What | Judge | Result |
 |---|---|---|
-| All models | Unit tests with hand-computed answers, run in CI | 168 tests pass |
+| All models | Unit tests with hand-computed answers, run in CI | all tests pass (CI badge) |
 | Zonal prices | Yearly means vs GME PUN annual means 2021-2025 (125.46, 303.95, 127.24, 108.52, 115.94 EUR/MWh), tolerance +-5% | All 7 zones within +-5% except SARD 2022 (287.0, -5.6%), reported as is |
 | Solar profile | Specific yield vs plausible Puglia fixed-tilt range of 1,400-1,600 kWh/kWp | 1,467 kWh/kWp (Foggia, PVGIS 2005-2023), pass |
 | Imbalance cost | Computed from real imbalance prices: 10% forecast miss x solar-weighted mean abs(imbalance - day-ahead), last 24 complete months | 6.35 EUR/MWh in SUD (5.11 NORD to 6.61 SARD), replaces the 3.0 placeholder |
@@ -101,12 +101,14 @@ streamlit run app/Home.py
 The repository ships the built data for all seven zones in `data/precomputed/`. To rebuild, run one command from either source (both write identical files; `manifest.json` records which was used):
 
 ```bash
-# ENTSO-E File Library zips (no token)
+# ENTSO-E File Library zips (no token); the full multi-zip command is in docs/data-sources.md
 python scripts/build_data.py --source file-library --prices-zips data/raw/energyprices.zip \
     --solar-zips data/raw/gen.zip --imbalance-zips data/raw/ImbalacePrices2.zip --sites
 # ENTSO-E API (free token in ENTSOE_TOKEN)
 python scripts/build_data.py --source api --start 2021-01 --sites
 ```
+
+The shipped data was built from several zips per kind; `docs/data-sources.md` has the exact command for all of them.
 
 `--sites` adds the PVGIS solar profile of each zone (no key). `SUNDIAL_DATA_DIR` points the app at another data folder; `SUNDIAL_FORCE_SYNTHETIC=1` forces the labelled synthetic prices.
 

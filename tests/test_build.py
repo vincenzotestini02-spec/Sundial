@@ -80,7 +80,7 @@ def test_manifest_records_range_and_rows(tmp_path):
     on_disk = json.loads((tmp_path / "manifest.json").read_text())
     assert on_disk["files"] == m["files"]
     entry = m["files"]["prices_SUD.parquet"]
-    assert entry == {"first": idx[0].isoformat(), "last": idx[-1].isoformat(), "rows": 5}
+    assert entry == {"first": idx[0].isoformat(), "last": idx[-1].isoformat(), "rows": 5, "filled_hours": 0}
     assert m["source"] == "api" and "built_utc" in m
 
 
@@ -88,4 +88,5 @@ def test_write_zone_files_fills_short_gaps(tmp_path):
     idx = pd.DatetimeIndex(pd.to_datetime(["2026-01-01 00:00", "2026-01-01 03:00"], utc=True))
     m = write_zone_files({"SUD": pd.Series([10.0, 40.0], index=idx)}, {}, {}, tmp_path, "api")
     assert m["files"]["prices_SUD.parquet"]["rows"] == 4
+    assert m["files"]["prices_SUD.parquet"]["filled_hours"] == 2  # printed per zone by scripts/build_data.py
     assert list(pd.read_parquet(tmp_path / "prices_SUD.parquet")["price"]) == [10.0, 20.0, 30.0, 40.0]
