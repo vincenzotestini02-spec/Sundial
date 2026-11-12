@@ -1,5 +1,7 @@
 # Sundial
 
+[![CI](https://github.com/vincenzotestini02-spec/Sundial/actions/workflows/ci.yml/badge.svg)](https://github.com/vincenzotestini02-spec/Sundial/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 *Route-to-market and PPA valuation for Italian renewables. Like a sundial, it reads the sun to tell you what your power is worth.*
 
 A Python package and Streamlit app that values Italian renewable power purchase agreements (PPAs) and turns a set of offers into one recommendation.

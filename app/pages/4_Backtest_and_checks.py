@@ -14,7 +14,7 @@ st.set_page_config(page_title="Backtest and checks", layout="wide")
 
 BENCHMARKS = Path(__file__).resolve().parents[2] / "docs" / "benchmarks.md"
 YIELD_RANGE = (1400, 1600)  # kWh/kWp per year, plausible for southern Italy
-CI_BADGE = "https://github.com/OWNER/italian-renewables-rtm/actions"  # TODO Task 12: replace OWNER with the real GitHub owner once the remote exists
+CI_BADGE = "https://github.com/vincenzotestini02-spec/Sundial/actions"
 
 zone = common.DEFAULT_ZONE
 case = common.get_example(zone)
