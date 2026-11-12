@@ -1,26 +1,41 @@
 # Data sources
 
-All sources are public. Check each source's terms before publishing data, and cite the source in every chart and deliverable.
+All sources are public. Cite the source in every chart and deliverable.
 
-| Data | Source | Access | Used by | Notes |
-|---|---|---|---|---|
-| Day-ahead prices by Italian bidding zone | ENTSO-E Transparency Platform, transparency.entsoe.eu | Free registration; REST API token requested by email to the ENTSO-E helpdesk | `scripts/build_data.py`, `src/ppa_italia/data/entsoe.py` | Python client `entsoe-py`. Zones NORD, CNOR, CSUD, SUD, CALA, SICI, SARD. Short gaps (up to 6 hours) are interpolated by the script; longer gaps stay missing. **Token not yet available: the app uses a labelled synthetic series** (`data/synthetic.py`) |
-| Actual wind generation per zone | ENTSO-E Transparency Platform | Same token | (not built; out of scope) | The wind loader remains but the build pipeline no longer produces wind profiles |
-| Solar production profile | PVGIS (EU Joint Research Centre), re.jrc.ec.europa.eu/pvg_tools | Free, no key | `scripts/build_puglia_profile.py`, `src/ppa_italia/data/pvgis.py` | Cite "PVGIS (c) European Union". The Puglia profile is precomputed in `data/precomputed/puglia_solar.parquet` |
-| Imbalance prices | Terna, terna.it | Public downloads | `examples/default/assumptions.toml` | Computed from real imbalance prices where available; else placeholder (3.0 EUR/MWh) |
-| Guarantees of origin | GSE; EEX auction results | Public | `examples/default/assumptions.toml` | Placeholder (1.0 EUR/MWh) until sourced |
-| Italian market and regulation | GME, GSE, Terna, ARERA | Public | `docs/term-sheet-*.md` | Verify the current status of the PUN phase-out before relying on the change-in-law wording |
-| Default probabilities | S&P Global Ratings annual default study (as cited in `credit.py`) | Public report | `src/ppa_italia/credit.py` | Edition and values to be verified |
-| PPA price benchmarks | Press reports of LevelTen / Pexapark indices | Public articles | `docs/benchmarks.md` | One dated figure so far, with caveats |
-| Italian zonal prices (cross-check only) | Energy-Charts (Fraunhofer ISE), api.energy-charts.info | No key | **Never used** | Licence for Italian zones: private and internal use only. No raw or derived data from it is stored or published |
+The shipped data are in `data/precomputed/` (committed Parquet files plus `manifest.json`, which the app footer reads). They can be rebuilt from either of two sources that write identical files:
+
+```bash
+# ENTSO-E File Library zips (monthly CSV extracts, registered download, no API token)
+python scripts/build_data.py --source file-library --prices-zips data/raw/energyprices.zip data/raw/Energyprices2.zip \
+    --solar-zips data/raw/AggregatedGenerationPerType.zip data/raw/AggregatedGenerationPerType2.zip \
+    --imbalance-zips data/raw/ImbalancePrices.zip data/raw/ImbalacePrices2.zip --sites
+# ENTSO-E API (free token in the environment)
+ENTSOE_TOKEN=... python scripts/build_data.py --source api --start 2021-01 --sites
+```
+
+`--zones` limits the build to some zones; `--sites` also fetches the PVGIS site profiles. Raw downloads go in `data/raw/` and are not committed.
+
+| Data | Source | Access | File Library folder | Files written | Build command | Licence decision / note |
+|---|---|---|---|---|---|---|
+| Day-ahead prices by bidding zone (NORD, CNOR, CSUD, SUD, CALA, SICI, SARD) | ENTSO-E Transparency Platform | File Library zips (registered download) or API token | `EnergyPrices_12.1.D_r3.1` | `prices_<ZONE>.parquet` | `build_data.py --source file-library --prices-zips ...` or `--source api` | Publication allowed per the author's reading of the ENTSO-E terms of use. Hourly UTC; 15-minute prices (from 1 Oct 2025) averaged to hourly. Gaps up to 6 hours interpolated; longer gaps stay missing |
+| Actual solar generation by zone | ENTSO-E Transparency Platform | Same | `AggregatedGenerationPerType_16.1.B_C_r3` (production type Solar) | `solar_zone_<ZONE>.parquet` | `build_data.py ... --solar-zips ...` | Same decision. Used for the zonal solar shape only (normalised). SARD has gaps in 2022-2025: those years use the PVGIS shape |
+| Imbalance prices by zone | ENTSO-E Transparency Platform | Same | `ImbalancePrices_17.1.G_r3.1` | `imbalance_<ZONE>.parquet` | `build_data.py ... --imbalance-zips ...` | Same decision. Positive and negative prices collapsed to one price (non-zero side) before storing; available from 2022-03-31 |
+| Site solar profile (one site per zone) | PVGIS (EU Joint Research Centre), re.jrc.ec.europa.eu/pvg_tools | Free, no key | not applicable | `site_<ZONE>.parquet` | `build_data.py ... --sites` | Cite "PVGIS (c) European Union". Weather years 2005-2023 |
+| Region to zone mapping | GME zone table; Terna "Le nuove zone del mercato elettrico" | Public | not applicable | `src/ppa_italia/zones.py` | not applicable | URLs in the module docstring |
+| Guarantees of origin | GSE; EEX auction results | Public | not applicable | `examples/default/assumptions.toml` | not applicable | Placeholder (1.0 EUR/MWh) until sourced |
+| Italian market and regulation | GME, GSE, Terna, ARERA | Public | not applicable | `docs/term-sheet-*.md` | not applicable | Verify the current status of the PUN phase-out before relying on the change-in-law wording |
+| Default probabilities | S&P Global Ratings annual default study (as cited in `credit.py`) | Public report | not applicable | `src/ppa_italia/credit.py` | not applicable | Edition and values to be verified |
+| PPA price benchmarks | Press reports of LevelTen / Pexapark indices | Public articles | not applicable | `docs/benchmarks.md` | not applicable | One dated figure so far, with caveats |
+| Italian zonal prices (cross-check only) | Energy-Charts (Fraunhofer ISE), api.energy-charts.info | No key | not applicable | none | **Never used** | Licence for Italian zones: private and internal use only. No raw or derived data from it is stored or published |
+
+Not built: actual wind generation per zone (the loader remains but the pipeline does not produce wind profiles).
 
 ## Open items
 
-- **ENTSO-E licence decision (author, pending).** Read the ENTSO-E Transparency Platform terms of use and decide whether hourly prices may be redistributed in a public repository and app. If yes, ship the Parquet files. If not, apply the fallback in the design spec section 5.2: ship only zone-year aggregates and the Puglia results, plus a "paste your own token" input on the Asset page held in `st.session_state` only. Record the decision and the terms link here once made: decision: _pending_; link: _pending_.
-- ENTSO-E API token not yet obtained; imbalance and GoO assumptions not yet sourced.
+- GoO value and margin are placeholders; default probabilities need their edition checked against the source.
+- Terms link for the ENTSO-E licence decision: the author to record the terms version and date read.
 
 ## Rules
 
-- Raw downloads go in `data/raw/` and are not committed.
-- Every assumption (imbalance cost, risk discount, GoO price) is written in `docs/methodology.md` and `examples/default/assumptions.toml` with its source, or marked as a placeholder.
+- Every assumption (imbalance error share, balancing fee, price-level band, hedge floor share, margin, GoO price) is written in `docs/methodology.md` and `examples/default/assumptions.toml` or `offers.csv` with its source, or marked as a placeholder.
 - Numbers in deliverables are indicative and labelled as such.
