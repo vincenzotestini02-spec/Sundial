@@ -7,6 +7,3 @@ data/raw/
 .streamlit/secrets.toml
 *.egg-info/
 docs/superpowers/
-# Real ENTSO-E data: keep local until the licence decision (docs/data-sources.md)
-data/precomputed/prices_*.parquet
-data/precomputed/solar_actual_*.parquet
