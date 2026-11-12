@@ -116,3 +116,40 @@ def test_force_synthetic_env_ignores_real_price_files(tmp_path, monkeypatch):
     monkeypatch.setenv("SUNDIAL_FORCE_SYNTHETIC", "1")
     _, synthetic = store.load_prices("SUD")
     assert synthetic is True
+
+
+from ppa_italia.zones import ZONES  # noqa: E402
+
+
+def test_data_dir_env_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("SUNDIAL_DATA_DIR", str(tmp_path))
+    assert store.data_dir() == tmp_path
+
+
+def test_fixture_dir_gives_distinct_real_prices_per_zone(monkeypatch):
+    monkeypatch.delenv("SUNDIAL_FORCE_SYNTHETIC", raising=False)
+    means = {z: store.load_prices(z)[0].mean() for z in ZONES}
+    assert len(set(round(v, 6) for v in means.values())) == 7
+    assert all(not store.load_prices(z)[1] for z in ZONES)
+
+
+def test_fixture_dir_has_every_component_for_every_zone(monkeypatch):
+    monkeypatch.delenv("SUNDIAL_FORCE_SYNTHETIC", raising=False)
+    for z in ZONES:
+        assert store.data_status(z) == store.DataStatus(prices_real=True, zone_solar=True, imbalance=True)
+        assert (store.load_zone_solar(z) >= 0).all()
+        imb = store.load_imbalance(z)
+        assert isinstance(imb, pd.Series) and len(imb) > 0 and imb.notna().all()
+        prof = store.load_site_profile(z)
+        assert prof.index.year.min() == 2005 and prof.index.year.max() == 2006
+    manifest = store.load_manifest()
+    assert manifest is not None and set(manifest["files"]) >= {f"prices_{z}.parquet" for z in ZONES}
+
+
+def test_missing_optional_files_return_none_and_status(tmp_path, monkeypatch):
+    monkeypatch.setenv("SUNDIAL_DATA_DIR", str(tmp_path))
+    assert store.load_zone_solar("SUD") is None and store.load_imbalance("SUD") is None
+    assert store.load_manifest() is None
+    assert store.data_status("SUD") == store.DataStatus(prices_real=False, zone_solar=False, imbalance=False)
+    with pytest.raises(FileNotFoundError, match="build_data.py"):
+        store.load_site_profile("SUD")
