@@ -13,7 +13,7 @@ For hourly prices *p_h* (EUR/MWh) and generation *g_h* (MWh):
 
 **15-minute prices.** Since 1 Oct 2025 the day-ahead market clears in 15-minute steps. Prices are averaged to hourly (`data/entsoe.py: to_hourly`) to match hourly generation profiles. This smooths intra-hour price shape. *Limitation:* slightly understates intra-hour volatility; acceptable for indicative valuation.
 
-**Short data gaps.** `scripts/build_prices.py` fills gaps of up to 6 consecutive missing hours by linear interpolation on a complete hourly UTC index (`fill_short_gaps`) and prints the hours filled per zone and year. Longer gaps stay missing, and incomplete years are not used as scenarios. *Limitation:* interpolation hides short real price spikes.
+**Short data gaps.** `scripts/build_data.py` fills gaps of up to 6 consecutive missing hours by linear interpolation on a complete hourly UTC index (`fill_short_gaps`) and prints the hours filled per zone and year. Longer gaps stay missing, and incomplete years are not used as scenarios. *Limitation:* interpolation hides short real price spikes.
 
 ## 2. Solar profile (`data/pvgis.py`, `scripts/build_puglia_profile.py`)
 

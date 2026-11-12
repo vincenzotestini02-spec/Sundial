@@ -101,9 +101,9 @@ def load_solar_puglia() -> pd.Series:
 def load_wind_cf(zone: str) -> pd.Series:
     """Return the hourly wind capacity factor (0..1) for a zone.
 
-    Raises FileNotFoundError if scripts/build_wind_proxy.py has not been run.
+    Raises FileNotFoundError if the file is missing (wind is not built by the pipeline).
     """
     path = data_dir() / f"wind_cf_{zone}.parquet"
     if not path.exists():
-        raise FileNotFoundError(f"{path} not found: run scripts/build_wind_proxy.py")
+        raise FileNotFoundError(f"{path} not found: wind profiles are not built by scripts/build_data.py")
     return pd.read_parquet(path)["cf"]

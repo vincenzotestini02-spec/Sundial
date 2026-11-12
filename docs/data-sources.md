@@ -4,8 +4,8 @@ All sources are public. Check each source's terms before publishing data, and ci
 
 | Data | Source | Access | Used by | Notes |
 |---|---|---|---|---|
-| Day-ahead prices by Italian bidding zone | ENTSO-E Transparency Platform, transparency.entsoe.eu | Free registration; REST API token requested by email to the ENTSO-E helpdesk | `scripts/build_prices.py`, `src/ppa_italia/data/entsoe.py` | Python client `entsoe-py`. Zones NORD, CNOR, CSUD, SUD, CALA, SICI, SARD. Short gaps (up to 6 hours) are interpolated by the script; longer gaps stay missing. **Token not yet available: the app uses a labelled synthetic series** (`data/synthetic.py`) |
-| Actual wind generation per zone | ENTSO-E Transparency Platform | Same token | `scripts/build_wind_proxy.py` | Zonal fleet proxy, normalised to capacity factor. Zonal fleet is not a single site |
+| Day-ahead prices by Italian bidding zone | ENTSO-E Transparency Platform, transparency.entsoe.eu | Free registration; REST API token requested by email to the ENTSO-E helpdesk | `scripts/build_data.py`, `src/ppa_italia/data/entsoe.py` | Python client `entsoe-py`. Zones NORD, CNOR, CSUD, SUD, CALA, SICI, SARD. Short gaps (up to 6 hours) are interpolated by the script; longer gaps stay missing. **Token not yet available: the app uses a labelled synthetic series** (`data/synthetic.py`) |
+| Actual wind generation per zone | ENTSO-E Transparency Platform | Same token | (not built; out of scope) | The wind loader remains but the build pipeline no longer produces wind profiles |
 | Solar production profile | PVGIS (EU Joint Research Centre), re.jrc.ec.europa.eu/pvg_tools | Free, no key | `scripts/build_puglia_profile.py`, `src/ppa_italia/data/pvgis.py` | Cite "PVGIS (c) European Union". The Puglia profile is precomputed in `data/precomputed/puglia_solar.parquet` |
 | Imbalance prices | Terna, terna.it | Public downloads | `examples/puglia/assumptions.toml` | Placeholder (3.0 EUR/MWh) until sourced |
 | Guarantees of origin | GSE; EEX auction results | Public | `examples/puglia/assumptions.toml` | Placeholder (1.0 EUR/MWh) until sourced |

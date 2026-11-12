@@ -90,13 +90,17 @@ python -m pytest
 streamlit run app/Home.py
 ```
 
-Real prices need a free ENTSO-E token in the `ENTSOE_TOKEN` environment variable, then:
+Real data for any zone comes from one command, from either source (both write identical files):
 
 ```bash
-python scripts/build_prices.py --zones NORD CNOR CSUD SUD CALA SICI SARD --start 2021-01-01
-python scripts/build_wind_proxy.py --zones SUD SICI
-python scripts/build_puglia_profile.py   # PVGIS solar profile, no key
+# ENTSO-E File Library zips (no token)
+python scripts/build_data.py --source file-library --prices-zips data/raw/energyprices.zip \
+    --solar-zips data/raw/gen.zip --imbalance-zips data/raw/ImbalacePrices2.zip --sites
+# ENTSO-E API (free token in ENTSOE_TOKEN)
+python scripts/build_data.py --source api --start 2021-01 --sites
 ```
+
+`--sites` adds the PVGIS solar profile of each zone (no key). `python scripts/build_puglia_profile.py` builds the legacy Puglia example.
 
 ## AI-assisted parts
 
