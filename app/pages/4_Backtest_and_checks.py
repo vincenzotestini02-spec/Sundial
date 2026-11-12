@@ -17,7 +17,7 @@ YIELD_RANGE = (1100, 1800)  # kWh/kWp per year, plausible for Italy
 CI_BADGE = "https://github.com/vincenzotestini02-spec/Sundial/actions"
 
 zone = common.region_selector()
-case = common.get_example(zone)
+case = common.load_case_or_stop(zone)
 common.header("Backtest and checks", case)
 st.caption(common.TYPICAL_YEAR_NOTE)
 
@@ -51,4 +51,4 @@ st.markdown(BENCHMARKS.read_text(encoding="utf-8"))
 st.subheader("Continuous integration")
 st.markdown(f"[![CI]({CI_BADGE}/workflows/ci.yml/badge.svg)]({CI_BADGE})")
 st.caption(common.SOURCES)
-common.footer()
+common.footer(case.is_synthetic)

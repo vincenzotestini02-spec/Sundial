@@ -13,7 +13,7 @@ from ppa_italia.pricing import p_levels  # noqa: E402
 st.set_page_config(page_title="Sundial", layout="wide")
 
 zone = common.region_selector()
-case = common.get_example(zone)
+case = common.load_case_or_stop(zone)
 common.header("Sundial: value an Italian renewable PPA", case)
 
 st.subheader("The customer's question")
@@ -56,4 +56,4 @@ st.page_link("pages/4_Backtest_and_checks.py", label="Backtest and checks: forec
 st.page_link("pages/5_Report.py", label="Report: download the customer PDF (IT/EN)")
 common.term_sheet_expanders()
 st.caption(common.SOURCES)
-common.footer()
+common.footer(case.is_synthetic)

@@ -64,28 +64,27 @@ def zonal_solar_figure(prices: pd.Series, zone_solar: pd.Series) -> go.Figure:
 
 
 zone = common.region_selector()
+case = common.load_case_or_stop(zone)
 site_name, site_lat, site_lon = ZONE_SITE[zone]
-EXAMPLE_MW = 20.0
 with st.sidebar:
     has_wind = wind_available(zone)
     tech = st.radio("Technology", ["Solar", "Wind"] if has_wind else ["Solar"])
     if not has_wind:
         st.caption("Wind is not available for this zone yet: its profile needs real ENTSO-E data.")
-    mw = st.number_input("Capacity (MW)", min_value=0.1, value=EXAMPLE_MW, step=1.0, key="mw")
+    mw = st.number_input("Capacity (MW)", min_value=0.1, value=case.capacity_mw, step=1.0, key="mw")
     if st.session_state.get("_site_zone") != zone:  # new region: reset the coordinates to its zone site
         st.session_state["lat"], st.session_state["lon"] = site_lat, site_lon
         st.session_state["_site_zone"] = zone
     lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, format="%.2f", key="lat")
     lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, format="%.2f", key="lon")
 
-case = common.get_example(zone)
 prices, is_synthetic = store.load_prices(zone)
 common.header("Asset value", case)
 st.caption(common.TYPICAL_YEAR_NOTE)
 st.caption(f"Solar site: {site_name} ({site_lat:.2f}, {site_lon:.2f}), representative of zone {zone}. "
            "Change latitude/longitude in the sidebar to fetch another site from PVGIS.")
 if is_synthetic:
-    st.caption("All zones share the same synthetic price series, so switching zone does not change the results yet.")
+    st.caption("Prices for this zone are a synthetic placeholder until real ENTSO-E data is built.")
 
 gen = solar_profile(zone, lat, lon, mw) if tech == "Solar" else store.load_wind_cf(zone) * mw
 
@@ -135,6 +134,6 @@ else:
         st.info(f"Prices and zonal solar do not overlap in time ({err}).")
 
 st.caption(common.SOURCES)
-common.footer()
+common.footer(case.is_synthetic)
 if is_synthetic:
     st.caption(f"Prices shown: {common.SYNTHETIC_LABEL}")

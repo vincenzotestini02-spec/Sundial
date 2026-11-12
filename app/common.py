@@ -22,13 +22,13 @@ DISCLAIMER = "Indicative, educational, built on public data. Not trading advice 
 SYNTHETIC_LABEL = "SYNTHETIC — placeholder until ENTSO-E data"
 TYPICAL_YEAR_NOTE = "Capture rates use a typical (median) weather year applied to every price year."
 SOURCES = "Sources: PVGIS © European Union; ENTSO-E Transparency Platform."
-DEFAULT_ZONE = "SUD"
 DEFAULT_REGION = "Puglia"
 IMBALANCE_NOTE = "Imbalance cost is a placeholder assumption: no imbalance prices are available for this zone."
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 TERM_SHEETS = {"Term sheet (EN)": DOCS / "term-sheet-en.md", "Term sheet (IT)": DOCS / "term-sheet-it.md"}
 
 
+# Caches live for the server process: restart the app after rebuilding the data.
 @st.cache_resource
 def get_example(zone: str) -> ExampleCase:
     """Load the example case for a zone once per server process."""
@@ -94,18 +94,29 @@ def status_notes(case: ExampleCase) -> list[str]:
     return notes
 
 
-def footer() -> None:
+def load_case_or_stop(zone: str) -> ExampleCase:
+    """The cached example for a zone; shows a visitor-friendly error and stops the page if its data is missing."""
+    try:
+        return get_example(zone)
+    except FileNotFoundError:
+        st.error("Data for this region is not available yet. Please choose another region. "
+                 "(Maintainer: run scripts/build_data.py --sites.)")
+        st.stop()
+
+
+def footer(is_synthetic: bool = False) -> None:
     """Caption naming the data source and period from the manifest, or that it is unknown."""
+    suffix = " — prices for this region: synthetic placeholder" if is_synthetic else ""
     manifest = store.load_manifest()
     if not manifest:
-        st.caption("Data source: unknown (no manifest)")
+        st.caption("Data source: unknown (no manifest)" + suffix)
         return
     firsts = [f["first"] for f in manifest.get("files", {}).values()]
     lasts = [f["last"] for f in manifest.get("files", {}).values()]
     first = min(firsts)[:10] if firsts else "?"
     last = max(lasts)[:10] if lasts else "?"
     built = str(manifest.get("built_utc", "?"))[:10]
-    st.caption(f"Data: ENTSO-E Transparency Platform ({manifest.get('source', '?')}), {first} → {last}, built {built}")
+    st.caption(f"Data: ENTSO-E Transparency Platform ({manifest.get('source', '?')}), {first} → {last}, built {built}{suffix}")
 
 
 def floor_note(case: ExampleCase, rec: Recommendation) -> str | None:

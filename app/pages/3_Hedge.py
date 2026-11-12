@@ -20,7 +20,7 @@ INFEASIBLE_MSG = (
 )
 
 zone = common.region_selector()
-case = common.get_example(zone)
+case = common.load_case_or_stop(zone)
 common.header("Hedge", case)
 st.write(
     "Choose how bad the worst 10% of outcomes may be (the CVaR floor, in M€ of NPV). "
@@ -106,4 +106,4 @@ st.dataframe(
     width="stretch",
 )
 st.caption(common.SOURCES)
-common.footer()
+common.footer(case.is_synthetic)

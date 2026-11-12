@@ -12,7 +12,7 @@ from ppa_italia.report import build_report  # noqa: E402
 st.set_page_config(page_title="Report", layout="wide")
 
 zone = common.region_selector()
-case = common.get_example(zone)
+case = common.load_case_or_stop(zone)
 common.header("Report", case)
 st.caption(common.TYPICAL_YEAR_NOTE)
 
@@ -28,4 +28,4 @@ st.download_button(
 )
 common.term_sheet_expanders()
 st.caption(common.SOURCES)
-common.footer()
+common.footer(case.is_synthetic)

@@ -21,7 +21,7 @@ from ppa_italia.tender import (  # noqa: E402
 st.set_page_config(page_title="Compare offers", layout="wide")
 
 zone = common.region_selector()
-case = common.get_example(zone)
+case = common.load_case_or_stop(zone)
 common.header("Compare offers", case)
 st.write("Edit the offers below (price in €/MWh), then adjust the weights. Needs at least 2 valid offers.")
 st.caption("Edits here are a sandbox: they do not change the recommendation on Home, Hedge or Report.")
@@ -81,4 +81,4 @@ if wins.iloc[0] < FRAGILE_THRESHOLD:
 else:
     st.markdown(f"Winner {winner} is robust: it wins in {wins.iloc[0] * 100:.0f}% of weightings.")
 st.caption(common.SOURCES)
-common.footer()
+common.footer(case.is_synthetic)
