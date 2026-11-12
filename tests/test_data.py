@@ -7,6 +7,7 @@ from ppa_italia.data import pvgis, store
 from ppa_italia.data.entsoe import capacity_for_year, fill_short_gaps, to_hourly
 from ppa_italia.data.pvgis import parse_hourly
 from ppa_italia.data.synthetic import make_synthetic_prices
+from ppa_italia.zones import ZONES
 
 
 def test_to_hourly_averages_quarter_hours():
@@ -118,8 +119,6 @@ def test_force_synthetic_env_ignores_real_price_files(tmp_path, monkeypatch):
     assert synthetic is True
 
 
-from ppa_italia.zones import ZONES  # noqa: E402
-
 
 def test_data_dir_env_override(tmp_path, monkeypatch):
     monkeypatch.setenv("SUNDIAL_DATA_DIR", str(tmp_path))
@@ -153,3 +152,10 @@ def test_missing_optional_files_return_none_and_status(tmp_path, monkeypatch):
     assert store.data_status("SUD") == store.DataStatus(prices_real=False, zone_solar=False, imbalance=False)
     with pytest.raises(FileNotFoundError, match="build_data.py"):
         store.load_site_profile("SUD")
+
+
+def test_load_imbalance_returns_price_column(tmp_path, monkeypatch):
+    idx = pd.date_range("2024-01-01", periods=3, freq="h", tz="UTC")
+    pd.DataFrame({"price": [5.0, 6.0, 7.0]}, index=idx).to_parquet(tmp_path / "imbalance_SUD.parquet")
+    monkeypatch.setenv("SUNDIAL_DATA_DIR", str(tmp_path))
+    assert list(store.load_imbalance("SUD")) == [5.0, 6.0, 7.0]

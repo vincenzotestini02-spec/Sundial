@@ -22,7 +22,7 @@ def make_fixture_dir(path: Path, years=(2023, 2024)) -> Path:
     """Write every per-zone data file for all 7 zones into `path` and return it.
 
     Prices: base 80 + 5 x zone index, minus a midday dip, plus seeded noise. Zonal solar: the bell
-    scaled by 1000 + 100 x zone index MW. Imbalance: price +/- noise on one side, 0 on the other.
+    scaled by 1000 + 100 x zone index MW. Imbalance: price + noise, single column `price`.
     Site profile: weather years 2005-2006, MWh per MWp. Also writes manifest.json.
     """
     path.mkdir(parents=True, exist_ok=True)
@@ -46,14 +46,7 @@ def make_fixture_dir(path: Path, years=(2023, 2024)) -> Path:
         write(f"prices_{zone}.parquet", pd.DataFrame({"price": price}, index=idx))
         write(f"solar_zone_{zone}.parquet", pd.DataFrame({"mw": bell * (1000.0 + 100.0 * i)}, index=idx))
         noise = rng.normal(0.0, 10.0, len(idx))
-        short = noise > 0  # one side non-zero per hour, as in the Italian single-price rows
-        write(
-            f"imbalance_{zone}.parquet",
-            pd.DataFrame(
-                {"positive": np.where(short, price + noise, 0.0), "negative": np.where(short, 0.0, price + noise)},
-                index=idx,
-            ),
-        )
+        write(f"imbalance_{zone}.parquet", pd.DataFrame({"price": price + noise}, index=idx))
         site = _bell(site_idx) * (0.85 + 0.01 * i)  # MWh per MWp
         write(f"site_{zone}.parquet", pd.DataFrame({"mwh_per_mwp": site}, index=site_idx))
 

@@ -54,16 +54,12 @@ def load_zone_solar(zone: str) -> pd.Series | None:
 
 
 def load_imbalance(zone: str) -> pd.Series | None:
-    """Return the zone's hourly UTC imbalance price in EUR/MWh, or None if the file is missing.
+    """Return the zone's hourly UTC imbalance price (EUR/MWh), or None if the file is missing.
 
-    Italian rows hold 0.0 on the unused side (single-price settlement): the price is the
-    non-zero column, the mean of the two if both are non-zero, and rows with both zero are dropped.
+    The build step has already collapsed the ENTSO-E positive/negative columns into `price`.
     """
     path = data_dir() / f"imbalance_{zone}.parquet"
-    if not path.exists():
-        return None
-    df = pd.read_parquet(path)[["positive", "negative"]]
-    return df.where(df != 0.0).mean(axis=1).dropna().rename("imbalance")
+    return pd.read_parquet(path)["price"] if path.exists() else None
 
 
 def load_site_profile(zone: str) -> pd.Series:
