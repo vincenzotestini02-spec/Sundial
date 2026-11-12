@@ -1,5 +1,7 @@
 import shutil
 
+import numpy as np
+
 import pandas as pd
 import pytest
 
@@ -53,7 +55,7 @@ def test_load_example_is_coherent_for_every_zone(zone, monkeypatch):
     assert ex.zone == zone and not ex.is_synthetic
     assert ex.scenarios.reference_level == pytest.approx(trailing_baseload(store.load_prices(zone)[0]))
     c = [o for o in ex.offers if o.structure == "floor"][0]
-    assert c.floor_premium == pytest.approx(1.2 * fair_floor_premium(c, ex.scenarios))
+    assert c.floor_premium == pytest.approx(1.2 * fair_floor_premium(c, ex.scenarios) + 1.1 * ex.market.imbalance_cost)
     assert ex.imbalance_source == "computed" and ex.market.imbalance_cost > 0
     assert ex.status.imbalance and ex.status.zone_solar and ex.fallback_years == []
 
@@ -68,3 +70,14 @@ def test_missing_imbalance_uses_labelled_placeholder(tmp_path, monkeypatch):
     assert ex.imbalance_source == "placeholder"
     assert ex.market.imbalance_cost == 3.0
     assert not ex.status.imbalance
+
+
+def test_balancing_fee_is_charged_to_offers_that_shift_imbalance(monkeypatch):
+    monkeypatch.delenv("SUNDIAL_FORCE_SYNTHETIC", raising=False)
+    ex = load_example("SUD")
+    a, b, c = ex.offers
+    imb = ex.market.imbalance_cost
+    p50 = float(np.percentile(ex.scenarios.capture_prices(), 50))
+    assert a.price == pytest.approx(0.97 * p50 - 1.1 * imb)
+    assert b.price == pytest.approx(0.95 * ex.scenarios.reference_level)
+    assert c.floor_premium == pytest.approx(1.2 * fair_floor_premium(c, ex.scenarios) + 1.1 * imb)

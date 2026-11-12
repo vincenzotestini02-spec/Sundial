@@ -32,15 +32,16 @@ class ExampleCase:
     imbalance_source: str = "placeholder"  # "computed" or "placeholder"
 
 
-def _read_offers(sc: ScenarioSet, avg_gen_mw: float) -> tuple[list[Offer], dict[str, float]]:
+def _read_offers(sc: ScenarioSet, avg_gen_mw: float) -> tuple[list[Offer], dict[str, float], dict[str, float]]:
     """Read offers.csv, pricing each relative to the P50 capture or the baseload level.
 
-    Returns the offers (floor premium still 0) and, per offer name, the premium
-    as a percentage of the fair floor premium.
+    Returns the offers (floor premium still 0), and per offer name the premium as a
+    percentage of the fair floor premium and the balancing fee as a percentage of
+    the imbalance cost.
     """
     p50_capture = float(np.percentile(sc.capture_prices(), 50))
     bases = {"capture": p50_capture, "baseload": sc.reference_level}
-    offers, premium_pct = [], {}
+    offers, premium_pct, fee_pct = [], {}, {}
     with open(EXAMPLE_DIR / "offers.csv", newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             offers.append(Offer(
@@ -58,7 +59,8 @@ def _read_offers(sc: ScenarioSet, avg_gen_mw: float) -> tuple[list[Offer], dict[
                 floor_premium=0.0,  # set from the fair premium once the market is known
             ))
             premium_pct[row["name"]] = float(row["floor_premium_pct_of_fair"])
-    return offers, premium_pct
+            fee_pct[row["name"]] = float(row["balancing_fee_pct_of_cost"])
+    return offers, premium_pct, fee_pct
 
 
 def _solar_shape(zone: str, zone_solar: pd.Series | None, prices: pd.Series) -> pd.Series:
@@ -66,6 +68,18 @@ def _solar_shape(zone: str, zone_solar: pd.Series | None, prices: pd.Series) -> 
     if zone_solar is not None and len(zone_solar.dropna()):
         return zone_solar
     return profile_on_years(store.load_site_profile(zone), sorted(set(prices.index.year)))
+
+
+def _apply_costs(o: Offer, sc: ScenarioSet, premium_pct: float, fee: float) -> Offer:
+    """Add the data-derived costs to an anchored offer (EUR/MWh on contracted volume).
+
+    Floor: premium = premium_pct of the fair premium, plus the balancing fee.
+    Pay-as-produced and baseload: the balancing fee the buyer charges for taking
+    the imbalance is deducted from the price.
+    """
+    if o.structure == "floor":
+        return replace(o, floor_premium=fair_floor_premium(o, sc) * premium_pct / 100 + fee)
+    return replace(o, price=o.price - fee)
 
 
 def load_example(zone: str = "SUD", capacity_mw: float = 20.0) -> ExampleCase:
@@ -78,12 +92,7 @@ def load_example(zone: str = "SUD", capacity_mw: float = 20.0) -> ExampleCase:
     prices, is_synthetic = store.load_prices(zone)
     zone_solar = store.load_zone_solar(zone)
     sc, fallback = build_scenarios_same_year(prices, zone_solar, store.load_site_profile(zone), capacity_mw)
-    avg_gen_mw = float(sc.gen.mean())
-    offers, premium_pct = _read_offers(sc, avg_gen_mw)
-    offers = [
-        replace(o, floor_premium=fair_floor_premium(o, sc) * premium_pct[o.name] / 100) if o.structure == "floor" else o
-        for o in offers
-    ]
+    offers, premium_pct, fee_pct = _read_offers(sc, float(sc.gen.mean()))
     with open(EXAMPLE_DIR / "assumptions.toml", "rb") as f:
         market = Market(**tomllib.load(f))
     imbalance = store.load_imbalance(zone)
@@ -92,6 +101,7 @@ def load_example(zone: str = "SUD", capacity_mw: float = 20.0) -> ExampleCase:
         cost = imbalance_cost(imbalance, prices, _solar_shape(zone, zone_solar, prices), market.imbalance_error_share)
         market = replace(market, imbalance_cost=cost)
         source = "computed"
+    offers = [_apply_costs(o, sc, premium_pct[o.name], fee_pct[o.name] / 100 * market.imbalance_cost) for o in offers]
     return ExampleCase(
         scenarios=sc,
         offers=offers,

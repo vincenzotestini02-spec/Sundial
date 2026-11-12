@@ -66,7 +66,7 @@ def test_load_example_is_anchored_and_consistent():
     assert ex.horizon == max(o.tenor_years for o in ex.offers)
     p50_capture = float(np.percentile(ex.scenarios.capture_prices(), 50))
     a = ex.offers[0]
-    assert a.price == pytest.approx(0.97 * p50_capture)
+    assert a.price == pytest.approx(0.97 * p50_capture - 1.1 * ex.market.imbalance_cost)  # less the balancing fee
 
 
 def test_floor_zero_volume_in_negative_hours():
