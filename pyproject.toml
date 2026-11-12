@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sundial"
+license = { text = "MIT" }
 version = "0.1.0"
 description = "Valuing Italian renewable PPAs"
 requires-python = ">=3.11"

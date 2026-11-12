@@ -118,3 +118,7 @@ Details: [docs/methodology.md](docs/methodology.md).
 ---
 
 Indicative, educational, built on public data. Not trading advice and not any company's pricing.
+
+## Licence
+
+Code: [MIT](LICENSE). Data keep their own terms (see *Data and licences*); bundled DejaVu fonts: see `assets/fonts/LICENSE-DejaVu.txt`.
