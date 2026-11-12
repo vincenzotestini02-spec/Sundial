@@ -12,7 +12,6 @@ from ppa_italia.data.synthetic import make_synthetic_prices
 
 PRECOMPUTED = Path(__file__).resolve().parents[3] / "data" / "precomputed"
 _DEFAULT_DIR = PRECOMPUTED
-PUGLIA_EXAMPLE_MWP = 20.0  # size of the legacy Puglia example park
 
 
 def data_dir() -> Path:
@@ -86,16 +85,6 @@ def data_status(zone: str) -> DataStatus:
         zone_solar=load_zone_solar(zone) is not None,
         imbalance=load_imbalance(zone) is not None,
     )
-
-
-def load_solar_puglia() -> pd.Series:
-    """Return hourly UTC production (MWh) of the 20 MWp Puglia solar park.
-
-    Compatibility path: site_SUD.parquet x 20 MWp if present, else the legacy puglia_solar.parquet.
-    """
-    if (data_dir() / "site_SUD.parquet").exists():
-        return load_site_profile("SUD") * PUGLIA_EXAMPLE_MWP
-    return pd.read_parquet(data_dir() / "puglia_solar.parquet")["gen_mwh"]
 
 
 def load_wind_cf(zone: str) -> pd.Series:

@@ -55,11 +55,6 @@ def test_load_wind_cf_missing_raises(tmp_path, monkeypatch):
         store.load_wind_cf("SUD")
 
 
-def test_load_solar_puglia_is_hourly_series():
-    s = store.load_solar_puglia()
-    assert isinstance(s, pd.Series) and len(s) > 0 and str(s.index.tz) == "UTC"
-
-
 def test_pvgis_error_on_http_failure(monkeypatch):
     class R:
         def raise_for_status(self): raise requests.HTTPError("400")
