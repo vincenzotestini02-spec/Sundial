@@ -1,1 +1,1 @@
-"""PPA Italia: valuing Italian renewable PPAs."""
+"""Sundial (package ppa_italia): valuing Italian renewable PPAs."""

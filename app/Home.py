@@ -10,11 +10,11 @@ import common  # noqa: E402
 from ppa_italia.data import store  # noqa: E402
 from ppa_italia.pricing import p_levels  # noqa: E402
 
-st.set_page_config(page_title="PPA Italia", layout="wide")
+st.set_page_config(page_title="Sundial", layout="wide")
 
 zone = common.DEFAULT_ZONE
 case = common.get_example(zone)
-common.header("PPA Italia: value an Italian renewable PPA", case.is_synthetic)
+common.header("Sundial: value an Italian renewable PPA", case.is_synthetic)
 
 st.subheader("The customer's question")
 st.write(

@@ -24,7 +24,7 @@ summary = common.get_home_yearly(zone)
 pdf = build_report(rec, summary, zone, lang, case.is_synthetic,
                    offer=common.offer_by_name(case.offers, rec.offer))
 st.download_button(
-    "Download PDF", data=pdf, file_name=f"ppa-italia-report-{lang}.pdf", mime="application/pdf",
+    "Download PDF", data=pdf, file_name=f"sundial-report-{lang}.pdf", mime="application/pdf",
 )
 common.term_sheet_expanders()
 st.caption(common.SOURCES)
