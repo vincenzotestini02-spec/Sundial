@@ -181,10 +181,15 @@ def test_every_page_uses_the_sidebar_region(page):
     assert not at.exception and at.sidebar.selectbox(key="region").value == "Puglia"
 
 
-def test_region_persists_across_pages(data_copy):
+@pytest.mark.parametrize("target", ["pages/1_Asset_value.py", "pages/3_Hedge.py", "pages/5_Report.py"])
+def test_region_persists_across_pages(target, data_copy):
+    """Choosing a region on Home survives real page navigation (Streamlit drops widget state otherwise)."""
     at = AppTest.from_file(HOME, default_timeout=120)
     at.run()
     at.sidebar.selectbox(key="region").set_value("Sicilia").run()
+    at.switch_page(target).run()
+    assert not at.exception
+    assert at.sidebar.selectbox(key="region").value == "Sicilia"
     assert "SICI" in at.sidebar.caption[0].value
 
 

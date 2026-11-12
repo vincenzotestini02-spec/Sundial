@@ -73,4 +73,32 @@ def test_recommend_share_uses_npv_net_of_credit():
     winner = next(o for o in ex.offers if o.name == r.offer)
     single = optimise_allocation(npv_net_of_credit(winner, sc, m, h)[:, None], npv(None, sc, m, h),
                                  r.cvar_floor, m.cvar_alpha)
-    assert r.share == pytest.approx(float(single.shares[0]), abs=1e-6)
+    # abs 1e-4: at the cap the recommendation solves 1e-6 (relative) inside the boundary
+    assert r.share == pytest.approx(float(single.shares[0]), abs=1e-4)
+
+
+def test_infeasible_single_offer_lp_raises_clear_error(monkeypatch):
+    """If the hedge LP is infeasible the recommendation must fail loudly, not report share 0."""
+    from ppa_italia import recommend as rec_mod
+    from ppa_italia.hedge import HedgeResult
+
+    ex = load_example("SUD")
+    bad = HedgeResult(__import__("numpy").zeros(1), float("nan"), float("nan"), "infeasible")
+    monkeypatch.setattr(rec_mod, "optimise_allocation", lambda *a, **k: bad)
+    with pytest.raises(RuntimeError, match="infeasible"):
+        recommend(ex.offers, ex.scenarios, ex.market, ex.horizon)
+
+
+def test_capped_floor_solves_just_inside_the_boundary(monkeypatch):
+    """At the CVaR cap the LP is given a floor a hair below the best CVaR, so it stays feasible."""
+    from ppa_italia import recommend as rec_mod
+
+    ex = load_example("SUD")
+    m = replace(ex.market, cvar_floor_share_of_mean=50.0)  # absurd target: capped
+    seen = []
+    real = rec_mod.optimise_allocation
+    monkeypatch.setattr(rec_mod, "optimise_allocation",
+                        lambda o, mm, floor, a=0.1: (seen.append(floor), real(o, mm, floor, a))[1])
+    r = recommend(ex.offers, ex.scenarios, m, ex.horizon)
+    assert r.floor_capped and seen[0] < r.cvar_floor
+    assert seen[0] == pytest.approx(r.cvar_floor, rel=1e-5)

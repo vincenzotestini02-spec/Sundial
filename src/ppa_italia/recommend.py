@@ -20,6 +20,11 @@ from ppa_italia.tender import (
 )
 
 
+def _inside(best_cvar: float) -> float:
+    """A CVaR level just below the best achievable one (relative margin 1e-6)."""
+    return best_cvar - 1e-6 * abs(best_cvar)
+
+
 @dataclass
 class Recommendation:
     """One answer: sign `offer` for `share` of production, fair price fair_low-fair_mid.
@@ -68,16 +73,23 @@ def recommend(
     # Hedge objective: NPV net of the offer's expected credit loss (spec 5.5 step 3).
     npv_winner = npv_net_of_credit(winner_offer, sc, m, horizon)
     floor_capped = False
+    best_cvar = max_cvar(npv_winner[:, None], npv_merchant, m.cvar_alpha)
     if cvar_floor is None:
         target = m.cvar_floor_share_of_mean * float(npv_merchant.mean())
-        best_cvar = max_cvar(npv_winner[:, None], npv_merchant, m.cvar_alpha)
         floor_capped = target > best_cvar
         cvar_floor = min(target, best_cvar)
-    single = optimise_allocation(npv_winner[:, None], npv_merchant, cvar_floor, m.cvar_alpha)
+    # Solve a hair inside the achievable boundary: at exactly best_cvar the LP can be reported
+    # infeasible through solver tolerance. The reported cvar_floor stays the true target/cap.
+    single = optimise_allocation(npv_winner[:, None], npv_merchant, min(cvar_floor, _inside(best_cvar)),
+                                 m.cvar_alpha)
+    if single.status != "optimal":
+        raise RuntimeError(f"Hedge LP for offer {winner} is infeasible at CVaR floor {cvar_floor:,.0f}; "
+                           f"cannot compute a hedge share.")
     share = float(single.shares[0])
 
     npv_all = np.column_stack([npv_net_of_credit(o, sc, m, horizon) for o in offers])
-    multi = optimise_allocation(npv_all, npv_merchant, cvar_floor, m.cvar_alpha)
+    multi = optimise_allocation(npv_all, npv_merchant, min(cvar_floor, _inside(
+        max_cvar(npv_all, npv_merchant, m.cvar_alpha))), m.cvar_alpha)
     multi_offer_shares = {o.name: float(s) for o, s in zip(offers, multi.shares)}
     top = max(multi_offer_shares, key=multi_offer_shares.get)
     disagrees = top != winner and multi_offer_shares[top] > 1e-6

@@ -70,10 +70,13 @@ def get_home_yearly(zone: str) -> pd.DataFrame:
 def region_selector() -> str:
     """Sidebar region selectbox (key "region", default Puglia); returns the region's bidding zone.
 
-    Must be called first on every page so the choice persists across pages via session_state.
+    Must be called first on every page. Streamlit drops a widget's keyed state when the
+    page changes, so the value is re-assigned to itself every run to keep it across pages.
     """
-    regions = list(REGION_TO_ZONE)
-    region = st.sidebar.selectbox("Region", regions, index=regions.index(DEFAULT_REGION), key="region")
+    st.session_state.setdefault("region", DEFAULT_REGION)
+    # Re-assigning keeps the value alive across pages (widget state is dropped on navigation).
+    st.session_state["region"] = st.session_state["region"]
+    region = st.sidebar.selectbox("Region of the asset", list(REGION_TO_ZONE), key="region")
     zone = zone_of(region)
     st.sidebar.caption(f"Bidding zone {zone}; solar site {ZONE_SITE[zone][0]}.")
     return zone
