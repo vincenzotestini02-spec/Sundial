@@ -38,6 +38,7 @@ class Recommendation:
     multi_offer_shares: dict[str, float]
     disagrees: bool
     cvar_floor: float
+    floor_capped: bool = False  # True when the target floor was above what the winner can achieve
 
 
 def recommend(
@@ -51,10 +52,12 @@ def recommend(
     """Run the full chain: score, robustness, hedge share, fair price, break-even.
 
     Both LPs (winner alone and the multi-offer mix) use NPV net of each offer's
-    expected credit loss. Default floor (cvar_floor=None), a stated and adjustable assumption: halve
-    the gap between the all-merchant downside and the best downside the winning
-    offer can deliver, i.e. merchant_cvar + 0.5 * (max_cvar(winner) - merchant_cvar).
-    Pass cvar_floor explicitly to override (e.g. the merchant CVaR itself).
+    expected credit loss. Default floor (cvar_floor=None), a stated and adjustable
+    bank-style assumption: the average NPV in the worst 10% of scenarios must be at
+    least `m.cvar_floor_share_of_mean` (0.85) times the expected merchant NPV.
+    If the winner cannot reach that target, the floor is capped at the best CVaR it
+    can deliver and `floor_capped` is True. If merchant CVaR already meets the floor,
+    the hedge share is 0. Pass cvar_floor explicitly to override.
     """
     table = criteria_table(offers, sc, m, horizon)
     winner = score(table, weights, HIGHER_IS_BETTER).index[0]
@@ -64,10 +67,12 @@ def recommend(
     winner_offer = next(o for o in offers if o.name == winner)
     # Hedge objective: NPV net of the offer's expected credit loss (spec 5.5 step 3).
     npv_winner = npv_net_of_credit(winner_offer, sc, m, horizon)
+    floor_capped = False
     if cvar_floor is None:
-        merchant_cvar = cvar(npv_merchant, m.cvar_alpha)
+        target = m.cvar_floor_share_of_mean * float(npv_merchant.mean())
         best_cvar = max_cvar(npv_winner[:, None], npv_merchant, m.cvar_alpha)
-        cvar_floor = merchant_cvar + 0.5 * (best_cvar - merchant_cvar)
+        floor_capped = target > best_cvar
+        cvar_floor = min(target, best_cvar)
     single = optimise_allocation(npv_winner[:, None], npv_merchant, cvar_floor, m.cvar_alpha)
     share = float(single.shares[0])
 
@@ -95,4 +100,5 @@ def recommend(
         multi_offer_shares=multi_offer_shares,
         disagrees=disagrees,
         cvar_floor=float(cvar_floor),
+        floor_capped=floor_capped,
     )

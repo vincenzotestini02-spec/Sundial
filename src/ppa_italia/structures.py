@@ -56,6 +56,7 @@ class Market:
     lgd: float = 0.6
     cvar_alpha: float = 0.10
     imbalance_error_share: float = 0.10  # share of output missed by the forecast
+    cvar_floor_share_of_mean: float = 0.85  # default hedge floor: worst-10% average >= this x expected merchant NPV
 
 
 def _spot(sc: ScenarioSet, m: Market, year: int) -> np.ndarray:

@@ -16,3 +16,5 @@ merchant_escalation_pct = 0.0
 lgd = 0.6
 # source: stated assumption, not a forecast: a symmetric +/-30% band around the trailing 12-month baseload; scenarios are built at 70%, 100% and 130% of it; adjustable
 price_level_band = 0.30
+# source: stated, bank-style assumption: the average revenue in the worst 10% of scenarios must be at least 85% of the expected merchant revenue; adjustable
+cvar_floor_share_of_mean = 0.85
