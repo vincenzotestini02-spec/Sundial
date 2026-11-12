@@ -134,6 +134,6 @@ else:
         st.info(f"Prices and zonal solar do not overlap in time ({err}).")
 
 st.caption(common.SOURCES)
-common.footer(case.is_synthetic)
+common.footer(zone, case.is_synthetic)
 if is_synthetic:
     st.caption(f"Prices shown: {common.SYNTHETIC_LABEL}")

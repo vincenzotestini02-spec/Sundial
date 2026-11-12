@@ -27,6 +27,6 @@ pdf = build_report(rec, summary, zone, lang, case.is_synthetic,
 st.download_button(
     "Download PDF", data=pdf, file_name=f"sundial-report-{lang}.pdf", mime="application/pdf",
 )
-common.term_sheet_expanders()
+common.term_sheet_expanders(zone)
 st.caption(common.SOURCES)
-common.footer(case.is_synthetic)
+common.footer(zone, case.is_synthetic)

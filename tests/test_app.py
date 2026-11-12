@@ -124,7 +124,35 @@ def test_offers_from_editor_rejects_duplicate_names():
 def test_term_sheet_expanders(page):
     at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=60).run()
     labels = [e.label for e in at.expander]
-    assert "Term sheet (EN)" in labels and "Term sheet (IT)" in labels
+    assert "Term sheet — Puglia example (zone SUD), EN" in labels
+    assert "Term sheet — Puglia example (zone SUD), IT" in labels
+
+
+@pytest.mark.parametrize("page", ["Home.py", "pages/5_Report.py", "pages/4_Backtest_and_checks.py"])
+def test_static_documents_flagged_outside_sud(page, data_copy):
+    at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=120).run()
+    assert not any("Puglia worked example" in c.value for c in at.caption)  # SUD: no flag
+    at.sidebar.selectbox(key="region").set_value("Sicilia").run()
+    flags = [c.value for c in at.caption if "Puglia worked example (zone SUD)" in c.value]
+    assert flags and all("zone SICI" in f and "headline and the PDF" in f for f in flags)
+
+
+def test_checks_page_lists_zone_assumptions(data_copy):
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "4_Backtest_and_checks.py"), default_timeout=120).run()
+    at.sidebar.selectbox(key="region").set_value("Sicilia").run()
+    assert not at.exception
+    assert "Assumptions for zone SICI" in [s.value for s in at.subheader]
+    text = " ".join(m.value for m in at.markdown)
+    for needle in ("Imbalance cost", "computed from ENTSO-E imbalance prices", "ε = 10%", "±30%", "scenarios",
+                   "Balancing fee, offer A: 110%", "Floor premium, offer C: fair", "applied",
+                   "CVaR target γ = 85%", "fallback"):
+        assert needle in text, needle
+
+
+def test_checks_page_no_synthetic_wording_on_real_data(data_copy):
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "4_Backtest_and_checks.py"), default_timeout=120).run()
+    assert not any("synthetic fair range" in c.value for c in at.caption)
+    assert any(c.value.startswith("The fair range is not comparable") for c in at.caption)
 
 
 def test_criteria_for_display_uses_meur_and_labels():
@@ -212,6 +240,17 @@ def test_footer_without_manifest(data_copy):
 def test_footer_with_manifest(data_copy):
     at = AppTest.from_file(HOME, default_timeout=120).run()
     assert any(c.value.startswith("Data: ENTSO-E Transparency Platform (") for c in at.caption)
+
+
+def test_footer_text_uses_human_label_zone_range_and_build_date():
+    from common import footer_text
+    manifest = {"source": "file-library", "built_utc": "2026-11-11T10:00:00",
+                "files": {"prices_SUD.parquet": {"first": "2021-01-01T00:00:00+00:00", "last": "2026-11-01T00:00:00+00:00"},
+                          "prices_NORD.parquet": {"first": "2022-05-05T00:00:00+00:00", "last": "2026-10-01T00:00:00+00:00"}}}
+    text = footer_text(manifest, "NORD")
+    assert "(File Library)" in text and "2022-05-05 → 2026-10-01" in text and "built 2026-11-11" in text
+    assert "file-library" not in text and "2021-01-01" not in text
+    assert "(ENTSO-E API)" in footer_text({**manifest, "source": "api"}, "SUD")
 
 
 def test_status_notes_name_fallback_years_and_imbalance():

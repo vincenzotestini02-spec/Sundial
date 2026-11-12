@@ -44,11 +44,19 @@ st.markdown(
 
 st.subheader("Fair pay-as-produced price range versus benchmarks")
 st.markdown(f"Fair pay-as-produced price range of this model: {rec.fair_low:.1f}–{rec.fair_mid:.1f} €/MWh.")
-st.caption("The synthetic fair range is not comparable with the LevelTen figure below: different "
+prefix = "The synthetic fair range" if case.is_synthetic else "The fair range"
+st.caption(f"{prefix} is not comparable with the LevelTen figure below: different "
            "price data, contract structure and percentile.")
+note = common.static_doc_caption(zone, "benchmarks block")
+if note:
+    st.caption(note)
 st.markdown(BENCHMARKS.read_text(encoding="utf-8"))
+
+st.subheader(f"Assumptions for zone {zone}")
+for line in common.assumption_lines(case, rec):
+    st.markdown(f"- {line}")
 
 st.subheader("Continuous integration")
 st.markdown(f"[![CI]({CI_BADGE}/workflows/ci.yml/badge.svg)]({CI_BADGE})")
 st.caption(common.SOURCES)
-common.footer(case.is_synthetic)
+common.footer(zone, case.is_synthetic)

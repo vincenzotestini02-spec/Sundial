@@ -81,4 +81,4 @@ if wins.iloc[0] < FRAGILE_THRESHOLD:
 else:
     st.markdown(f"Winner {winner} is robust: it wins in {wins.iloc[0] * 100:.0f}% of weightings.")
 st.caption(common.SOURCES)
-common.footer(case.is_synthetic)
+common.footer(zone, case.is_synthetic)

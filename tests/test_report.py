@@ -114,3 +114,19 @@ def test_options_table_is_multi_offer_mix_with_single_share_separate():
     _, text = _text(build_report(rec, SUMMARY, "SUD", "en", False, offer=FLOOR))
     assert "multi-offer mix" in text
     assert "Recommended offer alone (C): 44% of production" in text
+
+
+@pytest.mark.parametrize("lang,line", [("it", "Fonti: ENTSO-E Transparency Platform; PVGIS © European Union."),
+                                       ("en", "Sources: ENTSO-E Transparency Platform; PVGIS © European Union.")])
+def test_report_cites_sources(lang, line):
+    rec = Recommendation("A", 0.7, 55.0, 60.0, 52.0, 0.82, False, {"A": 0.7}, False, 0.0)
+    _, text = _text(build_report(rec, SUMMARY, "SUD", lang, is_synthetic=False))
+    assert line in text
+
+
+def test_latest_capture_rate_uses_latest_complete_year():
+    summary = pd.DataFrame({"capture_rate": [0.90, 0.80, 0.50], "hours": [8760, 8760, 2000]},
+                           index=[2023, 2024, 2025])
+    rec = Recommendation("A", 0.7, 55.0, 60.0, 52.0, 0.82, False, {"A": 0.7}, False, 0.0)
+    _, text = _text(build_report(rec, summary, "SUD", "en", is_synthetic=False))
+    assert "latest capture rate of your production is 80%" in text

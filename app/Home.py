@@ -54,6 +54,6 @@ st.page_link("pages/2_Compare_offers.py", label="Compare offers: edit offers, we
 st.page_link("pages/3_Hedge.py", label="Hedge: how much to sign, CVaR floor and frontier")
 st.page_link("pages/4_Backtest_and_checks.py", label="Backtest and checks: forecast error, yield, benchmarks")
 st.page_link("pages/5_Report.py", label="Report: download the customer PDF (IT/EN)")
-common.term_sheet_expanders()
+common.term_sheet_expanders(zone)
 st.caption(common.SOURCES)
-common.footer(case.is_synthetic)
+common.footer(zone, case.is_synthetic)

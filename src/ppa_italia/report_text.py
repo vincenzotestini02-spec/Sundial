@@ -18,6 +18,7 @@ TEXT: dict[Literal["it", "en"], dict[str, str]] = {
     "en": {
         "title": "PPA assessment — zone {zone}",
         "disclaimer": DISCLAIMER_EN,
+        "sources": "Sources: ENTSO-E Transparency Platform; PVGIS © European Union.",
         "synthetic_banner": SYNTHETIC_LABEL,
         "situation": (
             "Situation\n"
@@ -126,6 +127,7 @@ TEXT: dict[Literal["it", "en"], dict[str, str]] = {
     },
     "it": {
         "title": "Valutazione PPA — zona {zone}",
+        "sources": "Fonti: ENTSO-E Transparency Platform; PVGIS © European Union.",
         "disclaimer": (
             "Indicativo, a scopo educativo, basato su dati pubblici. Non è consulenza di trading "
             "né il prezzo di alcuna società."

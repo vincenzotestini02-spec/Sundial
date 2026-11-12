@@ -14,6 +14,7 @@ from ppa_italia.structures import Offer
 
 FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
 MERCHANT_THRESHOLD = 0.01  # below this share the advice is to stay merchant
+COMPLETE_YEAR_HOURS = 8700  # a year with at least this many hours counts as complete
 INVESTMENT_GRADE = ("AAA", "AA", "A", "BBB")
 
 
@@ -59,6 +60,18 @@ def _risk_and_red_team(t: dict[str, str], rec: Recommendation, offer: Offer | No
     if rec.disagrees:
         red += t["red_team_disagrees"]
     return risk.format(**fields), red.format(**fields)
+
+
+def _latest_complete_rate(summary: pd.DataFrame) -> float:
+    """Capture rate (fraction) of the latest complete year (>= 8,700 hours, as on Home), else the latest year.
+
+    A year-to-date value would mislead, so a partial last year is skipped when a complete one exists.
+    """
+    cr = summary["capture_rate"].dropna()
+    if "hours" in summary.columns:
+        complete = cr[summary.loc[cr.index, "hours"] >= COMPLETE_YEAR_HOURS]
+        cr = complete if len(complete) else cr
+    return float(cr.iloc[-1]) if len(cr) else float("nan")
 
 
 def _heading_body(pdf: FPDF, block: str) -> None:
@@ -119,7 +132,7 @@ def build_report(
     pdf.ln(2)
 
     cr = summary["capture_rate"].dropna()
-    latest = float(cr.iloc[-1]) * 100 if len(cr) else float("nan")
+    latest = _latest_complete_rate(summary) * 100
     fields = {
         "zone": zone,
         "offer": rec.offer,
@@ -173,4 +186,5 @@ def build_report(
     pdf.set_font("DejaVu", "", 8)
     pdf.set_text_color(90, 90, 90)
     pdf.multi_cell(0, 4.5, t["disclaimer"], new_x="LMARGIN", new_y="NEXT")
+    pdf.multi_cell(0, 4.5, t["sources"], new_x="LMARGIN", new_y="NEXT")
     return bytes(pdf.output())

@@ -1,6 +1,7 @@
 """Shared helpers for the Streamlit pages: cached example, header, offer editor parsing."""
 from __future__ import annotations
 
+import csv
 import dataclasses
 from pathlib import Path
 
@@ -10,8 +11,9 @@ import streamlit as st
 
 from ppa_italia.credit import npv_net_of_credit
 from ppa_italia.data import store
-from ppa_italia.example import ExampleCase, load_example
+from ppa_italia.example import EXAMPLE_DIR, ExampleCase, load_example
 from ppa_italia.hedge import frontier, merchant_breakeven_price
+from ppa_italia.pricing import fair_floor_premium
 from ppa_italia.recommend import Recommendation, recommend
 from ppa_italia.scenarios import profile_on_years, to_8760
 from ppa_italia.structures import Offer
@@ -24,8 +26,12 @@ TYPICAL_YEAR_NOTE = "Capture rates use a typical (median) weather year applied t
 SOURCES = "Sources: PVGIS © European Union; ENTSO-E Transparency Platform."
 DEFAULT_REGION = "Puglia"
 IMBALANCE_NOTE = "Imbalance cost is a placeholder assumption: no imbalance prices are available for this zone."
+EXAMPLE_OFFERS = EXAMPLE_DIR / "offers.csv"
 DOCS = Path(__file__).resolve().parents[1] / "docs"
-TERM_SHEETS = {"Term sheet (EN)": DOCS / "term-sheet-en.md", "Term sheet (IT)": DOCS / "term-sheet-it.md"}
+TERM_SHEETS = {"Term sheet — Puglia example (zone SUD), EN": DOCS / "term-sheet-en.md",
+               "Term sheet — Puglia example (zone SUD), IT": DOCS / "term-sheet-it.md"}
+STATIC_DOC_ZONE = "SUD"  # the term sheets and benchmarks were written for the Puglia (SUD) example
+SOURCE_LABELS = {"file-library": "File Library", "api": "ENTSO-E API"}
 
 
 # Caches live for the server process: restart the app after rebuilding the data.
@@ -107,19 +113,22 @@ def load_case_or_stop(zone: str) -> ExampleCase:
         st.stop()
 
 
-def footer(is_synthetic: bool = False) -> None:
-    """Caption naming the data source and period from the manifest, or that it is unknown."""
+def footer_text(manifest: dict | None, zone: str, is_synthetic: bool = False) -> str:
+    """Footer line: human source label, the zone's own price-file range and the build date."""
     suffix = " — prices for this region: synthetic placeholder" if is_synthetic else ""
-    manifest = store.load_manifest()
     if not manifest:
-        st.caption("Data source: unknown (no manifest)" + suffix)
-        return
-    firsts = [f["first"] for f in manifest.get("files", {}).values()]
-    lasts = [f["last"] for f in manifest.get("files", {}).values()]
-    first = min(firsts)[:10] if firsts else "?"
-    last = max(lasts)[:10] if lasts else "?"
+        return "Data source: unknown (no manifest)" + suffix
+    source = manifest.get("source", "?")
+    label = SOURCE_LABELS.get(source, source)
+    entry = manifest.get("files", {}).get(f"prices_{zone}.parquet")
+    period = f"{entry['first'][:10]} → {entry['last'][:10]}" if entry else "no price file for this zone"
     built = str(manifest.get("built_utc", "?"))[:10]
-    st.caption(f"Data: ENTSO-E Transparency Platform ({manifest.get('source', '?')}), {first} → {last}, built {built}{suffix}")
+    return f"Data: ENTSO-E Transparency Platform ({label}), {zone} prices {period}, built {built}{suffix}"
+
+
+def footer(zone: str, is_synthetic: bool = False) -> None:
+    """Caption naming the data source, the zone's price period and the build date from the manifest."""
+    st.caption(footer_text(store.load_manifest(), zone, is_synthetic))
 
 
 def floor_note(case: ExampleCase, rec: Recommendation) -> str | None:
@@ -206,11 +215,51 @@ def offer_by_name(offers: list[Offer], name: str) -> Offer:
     return next(o for o in offers if o.name == name)
 
 
-def term_sheet_expanders() -> None:
-    """Render the EN and IT one-page term sheets from docs/ in two expanders."""
+def static_doc_caption(zone: str, what: str) -> str | None:
+    """Caption warning that a static document is the Puglia (SUD) example, or None when the zone is SUD."""
+    if zone == STATIC_DOC_ZONE:
+        return None
+    return (f"The {what} is the Puglia worked example (zone SUD), not this region. "
+            f"This region's numbers (zone {zone}) are in the headline and the PDF report.")
+
+
+def term_sheet_expanders(zone: str = STATIC_DOC_ZONE) -> None:
+    """Render the EN and IT one-page term sheets from docs/ in two expanders (Puglia example, flagged for other zones)."""
+    note = static_doc_caption(zone, "term sheet")
+    if note:
+        st.caption(note)
     for label, path in TERM_SHEETS.items():
         with st.expander(label):
             st.markdown(path.read_text(encoding="utf-8"))
+
+
+def assumption_lines(case: ExampleCase, rec: Recommendation) -> list[str]:
+    """The zone's data-derived assumptions as readable lines (imbalance, band, fee, floor premium, CVaR target, gaps)."""
+    m, sc = case.market, case.scenarios
+    src = ("computed from ENTSO-E imbalance prices" if case.imbalance_source == "computed"
+           else "placeholder, no imbalance prices for this zone")
+    lines = [f"Imbalance cost: {m.imbalance_cost:.2f} €/MWh ({src}); forecast error ε = {m.imbalance_error_share * 100:.0f}% of output."]
+    factors = sc.level_factors or (1.0,)
+    band = (max(factors) - min(factors)) / 2 * 100
+    lines.append(f"Price-level band: ±{band:.0f}% around the trailing 12-month baseload of {sc.reference_level:.1f} €/MWh; "
+                 f"{len(sc.prices)} scenarios ({len(factors)} price levels).")
+    with open(EXAMPLE_OFFERS, newline="", encoding="utf-8") as f:
+        rows = {r["name"]: r for r in csv.DictReader(f)}
+    for o in case.offers:
+        fee_pct = float(rows[o.name]["balancing_fee_pct_of_cost"])
+        if fee_pct > 0 and o.imbalance_on_buyer:
+            lines.append(f"Balancing fee, offer {o.name}: {fee_pct:.0f}% of the imbalance cost = "
+                         f"{fee_pct / 100 * m.imbalance_cost:.2f} €/MWh.")
+        if o.structure == "floor":
+            fair = fair_floor_premium(o, sc)
+            lines.append(f"Floor premium, offer {o.name}: fair {fair:.2f} €/MWh; applied {o.floor_premium:.2f} €/MWh "
+                         f"({rows[o.name]['floor_premium_pct_of_fair']}% of fair plus the balancing fee).")
+    capped = "reached only partly: the target was capped" if rec.floor_capped else "reachable, not capped"
+    lines.append(f"Bank-style CVaR target γ = {m.cvar_floor_share_of_mean * 100:.0f}% of the mean merchant NPV "
+                 f"(worst {m.cvar_alpha * 100:.0f}% of scenarios): {capped}.")
+    years = ", ".join(str(y) for y in case.fallback_years) or "none"
+    lines.append(f"Years on the PVGIS site profile instead of zonal solar (fallback): {years}.")
+    return lines
 
 
 CRITERIA_LABELS = {

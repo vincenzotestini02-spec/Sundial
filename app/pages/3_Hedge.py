@@ -106,4 +106,4 @@ st.dataframe(
     width="stretch",
 )
 st.caption(common.SOURCES)
-common.footer(case.is_synthetic)
+common.footer(zone, case.is_synthetic)
