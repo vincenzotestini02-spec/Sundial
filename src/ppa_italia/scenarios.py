@@ -4,6 +4,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from ppa_italia.data.entsoe import fill_short_gaps
+
 HOURS = 8760
 
 
@@ -21,6 +23,17 @@ def to_8760(s: pd.Series) -> dict[int, np.ndarray]:
     return out
 
 
+def _complete_years(s: pd.Series) -> dict[int, np.ndarray]:
+    """Like `to_8760`, but a year containing any NaN does not count as complete."""
+    return {y: v for y, v in to_8760(s).items() if not np.isnan(v).any()}
+
+
+def _median_energy_year(complete: dict[int, np.ndarray]) -> np.ndarray:
+    """The year whose annual energy is the median (lower-middle when the count is even)."""
+    by_energy = sorted(complete.items(), key=lambda kv: kv[1].sum())
+    return by_energy[(len(by_energy) - 1) // 2][1]
+
+
 def profile_on_years(gen: pd.Series, years: list[int]) -> pd.Series:
     """Stamp a typical (median-energy) weather year onto the given calendar years.
 
@@ -32,8 +45,7 @@ def profile_on_years(gen: pd.Series, years: list[int]) -> pd.Series:
     complete = to_8760(gen)
     if not complete:
         raise ValueError("no complete generation year (8760 hours) found")
-    by_energy = sorted(complete.items(), key=lambda kv: kv[1].sum())
-    profile = by_energy[(len(by_energy) - 1) // 2][1]
+    profile = _median_energy_year(complete)
     feb28_end = (31 + 28) * 24  # hours before 1 Mar in a non-leap year
     leap_profile = np.concatenate([profile[:feb28_end], profile[feb28_end - 24:feb28_end], profile[feb28_end:]])
     parts = []
@@ -101,3 +113,61 @@ def build_scenarios(
             gen_rows.append(g)
             labels.append((price_year, weather_year))
     return ScenarioSet(np.array(price_rows), np.array(gen_rows), labels, float(level))
+
+
+def build_scenarios_same_year(
+    prices: pd.Series,
+    zone_solar: pd.Series | None,
+    site_mwh_per_mwp: pd.Series,
+    mwp: float,
+    level: float | None = None,
+) -> tuple[ScenarioSet, list[int]]:
+    """Pair each price year with the zone's solar shape of the SAME year.
+
+    Method: prices and solar both depend on that year's weather and demand, so a
+    price year is matched with the real zonal solar shape of that year (hourly
+    MW divided by its annual sum, so it only describes *when* the sun produced).
+    Short gaps (<= 6 h) in the zonal series are filled first; a year still
+    incomplete (not 8760 hours, or any NaN) cannot give a shape, so that price
+    year falls back to the site's median-energy PVGIS weather year, and is
+    reported in the returned list. Price years that are partial or contain NaN
+    are dropped.
+
+    The energy level then comes from the site's PVGIS weather years: row
+    (price year y, weather year w) has generation = shape_y x annual energy of
+    weather year w x `mwp`. Prices are rescaled to `level` (default: trailing
+    12-month baseload). Rows are ordered price year first, weather year second.
+
+    Returns the ScenarioSet (labels = (price_year, weather_year)) and the sorted
+    list of price years that used the PVGIS fallback shape.
+    """
+    if level is None:
+        level = trailing_baseload(prices)
+    price_years = _complete_years(prices)
+    site_years = _complete_years(site_mwh_per_mwp)
+    if not price_years:
+        raise ValueError("no complete price year (8760 hours) found")
+    if not site_years:
+        raise ValueError("no complete site weather year (8760 hours) found")
+
+    zone_years: dict[int, np.ndarray] = {}
+    if zone_solar is not None and len(zone_solar):
+        filled, _ = fill_short_gaps(zone_solar.dropna())
+        zone_years = _complete_years(filled)
+    fallback_shape = _median_energy_year(site_years)
+    fallback_shape = fallback_shape / fallback_shape.sum()
+
+    price_rows, gen_rows, labels, fallback = [], [], [], []
+    for price_year, p in price_years.items():
+        zone = zone_years.get(price_year)
+        if zone is not None and zone.sum() > 0:
+            shape = zone / zone.sum()
+        else:
+            shape = fallback_shape
+            fallback.append(price_year)
+        rescaled = rescale_to_level(p, level)
+        for weather_year, w in site_years.items():
+            price_rows.append(rescaled)
+            gen_rows.append(shape * w.sum() * mwp)
+            labels.append((price_year, weather_year))
+    return ScenarioSet(np.array(price_rows), np.array(gen_rows), labels, float(level)), fallback

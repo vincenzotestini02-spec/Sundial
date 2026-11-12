@@ -97,3 +97,76 @@ def test_profile_on_years_constant_profile_reproduces_constant():
     from ppa_italia.scenarios import profile_on_years
     out = profile_on_years(_year(2010, 7.0), [2021, 2022, 2024])
     assert (out == 7.0).all()
+
+
+# --- same-year scenarios -------------------------------------------------
+
+from ppa_italia.scenarios import build_scenarios_same_year  # noqa: E402
+
+
+def _shaped(y, peak_hour, scale=1.0):
+    """A year whose single maximum sits at `peak_hour` (hour of year, non-leap numbering)."""
+    s = _year(y, 1.0)
+    s = s.copy()
+    s.iloc[peak_hour] = 10.0 * scale
+    return s * scale
+
+
+def _prices_2y():
+    rng = np.random.default_rng(0)
+    parts = [pd.Series(50 + rng.random(len(_year(y))) * 20, index=_year(y).index) for y in (2023, 2024)]
+    return pd.concat(parts)
+
+
+def _site_2w():
+    return pd.concat([_shaped(2005, 100, 1.0), _shaped(2006, 200, 2.0)])
+
+
+def test_same_year_shape_and_energy():
+    zone = pd.concat([_shaped(2023, 300), _shaped(2024, 500)])
+    site = _site_2w()
+    sc, fallback = build_scenarios_same_year(_prices_2y(), zone, site, mwp=20, level=80.0)
+    assert sc.prices.shape == (4, 8760) and fallback == []
+    assert sc.labels == [(2023, 2005), (2023, 2006), (2024, 2005), (2024, 2006)]
+    e = {w: v.sum() for w, v in to_8760(site).items()}
+    assert sc.gen[0].sum() == pytest.approx(e[2005] * 20)
+    assert sc.gen[1].sum() == pytest.approx(e[2006] * 20)
+    assert np.argmax(sc.gen[0]) == 300
+    assert np.argmax(sc.gen[2]) == 500
+
+
+def test_missing_zone_year_falls_back_to_site_shape():
+    zone = _shaped(2023, 300)
+    sc, fallback = build_scenarios_same_year(_prices_2y(), zone, _site_2w(), mwp=20)
+    assert fallback == [2024] and sc.prices.shape[0] == 4
+    # median-energy weather year (lower-middle of two) is 2005, peak at hour 100
+    assert np.argmax(sc.gen[2]) == 100
+
+
+def test_none_zone_solar_falls_back_for_all_years():
+    _, fallback = build_scenarios_same_year(_prices_2y(), None, _site_2w(), mwp=20)
+    assert fallback == [2023, 2024]
+
+
+def test_partial_current_year_is_excluded():
+    prices = pd.concat([_prices_2y(), _year(2025).iloc[:744]])
+    sc, _ = build_scenarios_same_year(prices, None, _site_2w(), mwp=20, level=70.0)
+    assert sorted({p for p, _ in sc.labels}) == [2023, 2024]
+
+
+def test_long_nan_gap_in_zone_year_falls_back_but_short_gap_is_filled():
+    z23 = _shaped(2023, 300)
+    z24 = _shaped(2024, 500)
+    z23.iloc[1000:1010] = np.nan  # 10 h > 6 h: cannot be repaired
+    z24.iloc[2000:2003] = np.nan  # 3 h: filled
+    sc, fallback = build_scenarios_same_year(_prices_2y(), pd.concat([z23, z24]), _site_2w(), mwp=20)
+    assert fallback == [2023]
+    assert not np.isnan(sc.gen).any()
+    assert np.argmax(sc.gen[2]) == 500
+
+
+def test_price_year_with_nan_is_excluded():
+    prices = _prices_2y()
+    prices.iloc[10] = np.nan
+    sc, _ = build_scenarios_same_year(prices, None, _site_2w(), mwp=20, level=70.0)
+    assert sorted({p for p, _ in sc.labels}) == [2024]
