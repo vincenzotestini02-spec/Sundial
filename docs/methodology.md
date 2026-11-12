@@ -74,7 +74,7 @@ Variables: share x_j of production under each offer (x_j >= 0, sum <= 1; the res
 
 ## 8. Fair price range and breakeven (`pricing.py`, `hedge.py`)
 
-- **Fair pay-as-produced price (mid)** = P50 capture price - imbalance cost - margin + GoO value (if transferred). The **low end** is the mid minus the gap between the P50 and P10 capture price (a risk discount from the scenario spread). Inputs: imbalance cost, margin and GoO value are placeholders pending sourcing (see `examples/puglia/assumptions.toml`). The range is a pay-as-produced fixed-price equivalent; the app and the report label it "fair pay-as-produced price range".
+- **Fair pay-as-produced price (mid)** = P50 capture price - imbalance cost - margin + GoO value (if transferred). The **low end** is the mid minus the gap between the P50 and P10 capture price (a risk discount from the scenario spread). Inputs: imbalance cost, margin and GoO value are placeholders pending sourcing (see `examples/default/assumptions.toml`). The range is a pay-as-produced fixed-price equivalent; the app and the report label it "fair pay-as-produced price range".
 - **Breakeven** (`merchant_breakeven_price`): the offer price at which the offer's mean NPV equals the mean NPV of staying merchant, found by root-finding on (0, 1000] EUR/MWh. For a floor offer it is the floor level. If no such price exists the app shows "n/a".
 - *Limitations:* the range is built on an assumed margin and a scenario spread, not on observed deal prices. See `docs/benchmarks.md` for the only dated external comparison found so far.
 

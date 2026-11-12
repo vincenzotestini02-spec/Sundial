@@ -1,6 +1,9 @@
-# Illustrative market assumptions; imbalance cost and GoO value are pending sourcing.
-# source: placeholder, illustrative imbalance cost for solar in the South zone (EUR/MWh)
+# Market assumptions. The imbalance cost is computed from the zone's real imbalance prices when
+# available (see ppa_italia.imbalance); the value below is only the fallback placeholder.
+# source: placeholder, illustrative imbalance cost for solar (EUR/MWh), used only if no imbalance data
 imbalance_cost = 3.0
+# source: assumed share of solar output missed by the day-ahead forecast
+imbalance_error_share = 0.10
 # source: placeholder, illustrative GoO market value (EUR/MWh)
 goo_value = 1.0
 # source: placeholder, illustrative minimum margin the producer requires (EUR/MWh)

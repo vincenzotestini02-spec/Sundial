@@ -170,3 +170,9 @@ def test_price_year_with_nan_is_excluded():
     prices.iloc[10] = np.nan
     sc, _ = build_scenarios_same_year(prices, None, _site_2w(), mwp=20, level=70.0)
     assert sorted({p for p, _ in sc.labels}) == [2024]
+
+
+def test_same_year_all_nan_zone_solar_falls_back_everywhere():
+    zone = pd.concat([_year(y, np.nan) for y in (2023, 2024)])
+    sc, fallback = build_scenarios_same_year(_prices_2y(), zone, _site_2w(), mwp=20, level=80.0)
+    assert fallback == [2023, 2024] and sc.prices.shape[0] == 4

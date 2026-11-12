@@ -9,7 +9,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ppa_italia.structures import Market
+from ppa_italia.scenarios import ScenarioSet
+from ppa_italia.structures import Market, Offer
 from ppa_italia.value import yearly_summary
 
 
@@ -25,6 +26,20 @@ def fair_price_range(capture_by_scenario: np.ndarray, m: Market, goo_transferred
     goo = m.goo_value if goo_transferred else 0.0
     mid = p50 - m.imbalance_cost - m.margin + goo
     return mid - (p50 - p10), mid
+
+
+def fair_floor_premium(o: Offer, sc: ScenarioSet) -> float:
+    """Fair premium (EUR/MWh) for the floor of offer `o`: the expected value of the put it grants.
+
+    Per scenario: sum of max(floor - price, 0) x volume over the sum of volume,
+    where volume is the generation (zeroed in hours with price <= 0 when the
+    offer has the zero-volume clause). The result is the mean over scenarios.
+    """
+    p, g = sc.prices, sc.gen
+    v = np.where(p <= 0, 0.0, g) if o.zero_volume_negative else g
+    top_up = (np.maximum(o.price - p, 0.0) * v).sum(axis=1)
+    volume = v.sum(axis=1)
+    return float(np.mean(np.divide(top_up, volume, out=np.zeros_like(top_up), where=volume > 0)))
 
 
 def p_levels(values: pd.Series) -> dict[str, float]:

@@ -151,7 +151,7 @@ def build_scenarios_same_year(
         raise ValueError("no complete site weather year (8760 hours) found")
 
     zone_years: dict[int, np.ndarray] = {}
-    if zone_solar is not None and len(zone_solar):
+    if zone_solar is not None and len(zone_solar.dropna()):
         filled, _ = fill_short_gaps(zone_solar.dropna())
         zone_years = _complete_years(filled)
     fallback_shape = _median_energy_year(site_years)

@@ -55,6 +55,7 @@ class Market:
     merchant_escalation_pct: float = 0.0
     lgd: float = 0.6
     cvar_alpha: float = 0.10
+    imbalance_error_share: float = 0.10  # share of output missed by the forecast
 
 
 def _spot(sc: ScenarioSet, m: Market, year: int) -> np.ndarray:

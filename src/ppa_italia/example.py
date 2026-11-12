@@ -1,16 +1,19 @@
-"""The Puglia solar example case: scenarios, illustrative offers and market assumptions."""
+"""The per-zone solar example case: scenarios, illustrative offers and market assumptions."""
 import csv
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from ppa_italia.data import store
-from ppa_italia.scenarios import ScenarioSet, build_scenarios, trailing_baseload
+from ppa_italia.imbalance import imbalance_cost
+from ppa_italia.pricing import fair_floor_premium
+from ppa_italia.scenarios import ScenarioSet, build_scenarios_same_year, profile_on_years
 from ppa_italia.structures import Market, Offer
 
-EXAMPLE_DIR = Path(__file__).resolve().parents[2] / "examples" / "puglia"
+EXAMPLE_DIR = Path(__file__).resolve().parents[2] / "examples" / "default"
 
 
 @dataclass(frozen=True)
@@ -23,13 +26,21 @@ class ExampleCase:
     is_synthetic: bool
     horizon: int  # years; the longest offer tenor
     capacity_mw: float = 20.0
+    zone: str = "SUD"
+    status: store.DataStatus | None = None
+    fallback_years: list[int] = field(default_factory=list)  # price years on the PVGIS shape
+    imbalance_source: str = "placeholder"  # "computed" or "placeholder"
 
 
-def _read_offers(sc: ScenarioSet, avg_gen_mw: float) -> list[Offer]:
-    """Read offers.csv, pricing each relative to the P50 capture or the baseload level."""
+def _read_offers(sc: ScenarioSet, avg_gen_mw: float) -> tuple[list[Offer], dict[str, float]]:
+    """Read offers.csv, pricing each relative to the P50 capture or the baseload level.
+
+    Returns the offers (floor premium still 0) and, per offer name, the premium
+    as a percentage of the fair floor premium.
+    """
     p50_capture = float(np.percentile(sc.capture_prices(), 50))
     bases = {"capture": p50_capture, "baseload": sc.reference_level}
-    offers = []
+    offers, premium_pct = [], {}
     with open(EXAMPLE_DIR / "offers.csv", newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             offers.append(Offer(
@@ -44,23 +55,52 @@ def _read_offers(sc: ScenarioSet, avg_gen_mw: float) -> list[Offer]:
                 rating=row["rating"],
                 penalty_severity=int(row["penalty_severity"]),
                 baseload_mw=float(row["baseload_pct_of_avg_mw"]) / 100 * avg_gen_mw,
-                floor_premium=float(row["floor_premium"]),
+                floor_premium=0.0,  # set from the fair premium once the market is known
             ))
-    return offers
+            premium_pct[row["name"]] = float(row["floor_premium_pct_of_fair"])
+    return offers, premium_pct
 
 
-def load_example(zone: str = "SUD") -> ExampleCase:
-    """Build the example case for `zone` from the bundled prices, solar profile and CSV/TOML files."""
+def _solar_shape(zone: str, zone_solar: pd.Series | None, prices: pd.Series) -> pd.Series:
+    """Hourly solar shape for weighting the imbalance cost: the zone's real solar, else the site profile on the price years."""
+    if zone_solar is not None and len(zone_solar.dropna()):
+        return zone_solar
+    return profile_on_years(store.load_site_profile(zone), sorted(set(prices.index.year)))
+
+
+def load_example(zone: str = "SUD", capacity_mw: float = 20.0) -> ExampleCase:
+    """Build the example case for `zone` from the zone's data files and the CSV/TOML files.
+
+    Offer prices are anchored to the P50 capture or baseload level; the floor premium
+    is a percentage of the fair premium; the imbalance cost is computed from the
+    zone's imbalance prices when present, otherwise the TOML placeholder is used.
+    """
     prices, is_synthetic = store.load_prices(zone)
-    gen = store.load_solar_puglia()
-    sc = build_scenarios(prices, gen, trailing_baseload(prices))
-    offers = _read_offers(sc, float(gen.mean()))
+    zone_solar = store.load_zone_solar(zone)
+    sc, fallback = build_scenarios_same_year(prices, zone_solar, store.load_site_profile(zone), capacity_mw)
+    avg_gen_mw = float(sc.gen.mean())
+    offers, premium_pct = _read_offers(sc, avg_gen_mw)
+    offers = [
+        replace(o, floor_premium=fair_floor_premium(o, sc) * premium_pct[o.name] / 100) if o.structure == "floor" else o
+        for o in offers
+    ]
     with open(EXAMPLE_DIR / "assumptions.toml", "rb") as f:
         market = Market(**tomllib.load(f))
+    imbalance = store.load_imbalance(zone)
+    source = "placeholder"
+    if imbalance is not None:
+        cost = imbalance_cost(imbalance, prices, _solar_shape(zone, zone_solar, prices), market.imbalance_error_share)
+        market = replace(market, imbalance_cost=cost)
+        source = "computed"
     return ExampleCase(
         scenarios=sc,
         offers=offers,
         market=market,
         is_synthetic=is_synthetic,
         horizon=max(o.tenor_years for o in offers),
+        capacity_mw=capacity_mw,
+        zone=zone,
+        status=store.data_status(zone),
+        fallback_years=fallback,
+        imbalance_source=source,
     )
