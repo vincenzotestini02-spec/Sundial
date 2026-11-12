@@ -176,3 +176,19 @@ def test_same_year_all_nan_zone_solar_falls_back_everywhere():
     zone = pd.concat([_year(y, np.nan) for y in (2023, 2024)])
     sc, fallback = build_scenarios_same_year(_prices_2y(), zone, _site_2w(), mwp=20, level=80.0)
     assert fallback == [2023, 2024] and sc.prices.shape[0] == 4
+
+
+def test_level_factors_multiply_rows_and_levels():
+    sc, _ = build_scenarios_same_year(_prices_2y(), None, _site_2w(), mwp=20, level=80.0, level_factors=(0.7, 1.0, 1.3))
+    assert sc.prices.shape[0] == 3 * 2 * 2
+    means = sc.prices.mean(axis=1)
+    assert np.allclose(sorted(set(np.round(means, 6))), [56.0, 80.0, 104.0])
+    assert sc.reference_level == 80.0 and sc.level_factors == (0.7, 1.0, 1.3)
+    # level outer, then price year, then weather year
+    assert sc.labels[:4] == sc.labels[4:8] == sc.labels[8:12]
+    assert np.allclose(sc.prices[:4].mean(axis=1), 56.0) and np.allclose(sc.prices[8:].mean(axis=1), 104.0)
+
+
+def test_default_single_level_unchanged():
+    sc, _ = build_scenarios_same_year(_prices_2y(), None, _site_2w(), mwp=20, level=80.0)
+    assert sc.prices.shape[0] == 4 and sc.level_factors == (1.0,)

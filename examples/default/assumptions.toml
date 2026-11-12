@@ -14,3 +14,5 @@ discount_rate = 0.07
 merchant_escalation_pct = 0.0
 # source: assumed loss given default for a PPA counterparty (unsecured corporate)
 lgd = 0.6
+# source: stated assumption, not a forecast: a symmetric +/-30% band around the trailing 12-month baseload; scenarios are built at 70%, 100% and 130% of it; adjustable
+price_level_band = 0.30

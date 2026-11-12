@@ -81,7 +81,8 @@ class ScenarioSet:
     prices: np.ndarray  # (n, 8760) EUR/MWh
     gen: np.ndarray  # (n, 8760) MWh
     labels: list[tuple[int, int]]  # (price_year, weather_year) per row
-    reference_level: float  # baseload mean every price row was rescaled to
+    reference_level: float  # central baseload level (the factor-1.0 rows are rescaled to it)
+    level_factors: tuple[float, ...] | None = None  # price-level multipliers, if a band was used
 
     def capture_prices(self) -> np.ndarray:
         """Generation-weighted average price of each scenario, shape (n,)."""
@@ -121,6 +122,7 @@ def build_scenarios_same_year(
     site_mwh_per_mwp: pd.Series,
     mwp: float,
     level: float | None = None,
+    level_factors: tuple[float, ...] = (1.0,),
 ) -> tuple[ScenarioSet, list[int]]:
     """Pair each price year with the zone's solar shape of the SAME year.
 
@@ -136,7 +138,15 @@ def build_scenarios_same_year(
     The energy level then comes from the site's PVGIS weather years: row
     (price year y, weather year w) has generation = shape_y x annual energy of
     weather year w x `mwp`. Prices are rescaled to `level` (default: trailing
-    12-month baseload). Rows are ordered price year first, weather year second.
+    12-month baseload).
+
+    Price-level band: history only tells us the *shape* of prices, not whether
+    the whole market will sit higher or lower in future. So every row is
+    repeated once per factor f in `level_factors`, with prices rescaled to
+    `level x f` (e.g. (0.7, 1.0, 1.3) = the current level and 30% below/above
+    it). This is a stated assumption, not a forecast; it is what gives a PPA
+    something to hedge. Rows are ordered level first, then price year, then
+    weather year. `reference_level` stays the central `level`.
 
     Returns the ScenarioSet (labels = (price_year, weather_year)) and the sorted
     list of price years that used the PVGIS fallback shape.
@@ -157,17 +167,22 @@ def build_scenarios_same_year(
     fallback_shape = _median_energy_year(site_years)
     fallback_shape = fallback_shape / fallback_shape.sum()
 
-    price_rows, gen_rows, labels, fallback = [], [], [], []
-    for price_year, p in price_years.items():
+    shapes, fallback = {}, []
+    for price_year in price_years:
         zone = zone_years.get(price_year)
         if zone is not None and zone.sum() > 0:
-            shape = zone / zone.sum()
+            shapes[price_year] = zone / zone.sum()
         else:
-            shape = fallback_shape
+            shapes[price_year] = fallback_shape
             fallback.append(price_year)
-        rescaled = rescale_to_level(p, level)
-        for weather_year, w in site_years.items():
-            price_rows.append(rescaled)
-            gen_rows.append(shape * w.sum() * mwp)
-            labels.append((price_year, weather_year))
-    return ScenarioSet(np.array(price_rows), np.array(gen_rows), labels, float(level)), fallback
+
+    price_rows, gen_rows, labels = [], [], []
+    for factor in level_factors:
+        for price_year, p in price_years.items():
+            rescaled = rescale_to_level(p, level * factor)
+            for weather_year, w in site_years.items():
+                price_rows.append(rescaled)
+                gen_rows.append(shapes[price_year] * w.sum() * mwp)
+                labels.append((price_year, weather_year))
+    sc = ScenarioSet(np.array(price_rows), np.array(gen_rows), labels, float(level), tuple(level_factors))
+    return sc, fallback

@@ -81,3 +81,19 @@ def test_balancing_fee_is_charged_to_offers_that_shift_imbalance(monkeypatch):
     assert a.price == pytest.approx(0.97 * p50 - 1.1 * imb)
     assert b.price == pytest.approx(0.95 * ex.scenarios.reference_level)
     assert c.floor_premium == pytest.approx(1.2 * fair_floor_premium(c, ex.scenarios) + 1.1 * imb)
+
+
+def test_load_example_uses_level_band(monkeypatch):
+    monkeypatch.delenv("SUNDIAL_FORCE_SYNTHETIC", raising=False)
+    ex = load_example("SUD")
+    assert ex.scenarios.level_factors == (0.7, 1.0, 1.3)
+    assert ex.scenarios.prices.shape[0] == 3 * len(set(ex.scenarios.labels))
+
+
+def test_fee_not_charged_when_seller_keeps_imbalance():
+    from dataclasses import replace
+    from ppa_italia.example import _apply_costs
+    o = _offer(structure="pap", price=60.0, imbalance_on_buyer=False)
+    assert _apply_costs(o, _flat_sc(), 0.0, 5.0).price == 60.0
+    o = _offer(structure="pap", price=60.0, imbalance_on_buyer=True)
+    assert _apply_costs(o, _flat_sc(), 0.0, 5.0).price == 55.0

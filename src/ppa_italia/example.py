@@ -75,8 +75,12 @@ def _apply_costs(o: Offer, sc: ScenarioSet, premium_pct: float, fee: float) -> O
 
     Floor: premium = premium_pct of the fair premium, plus the balancing fee.
     Pay-as-produced and baseload: the balancing fee the buyer charges for taking
-    the imbalance is deducted from the price.
+    the imbalance is deducted from the price. The fee applies only when the buyer
+    takes the imbalance (`imbalance_on_buyer`); otherwise the seller keeps it and
+    pays no fee.
     """
+    if not o.imbalance_on_buyer:
+        fee = 0.0
     if o.structure == "floor":
         return replace(o, floor_premium=fair_floor_premium(o, sc) * premium_pct / 100 + fee)
     return replace(o, price=o.price - fee)
@@ -88,13 +92,21 @@ def load_example(zone: str = "SUD", capacity_mw: float = 20.0) -> ExampleCase:
     Offer prices are anchored to the P50 capture or baseload level; the floor premium
     is a percentage of the fair premium; the imbalance cost is computed from the
     zone's imbalance prices when present, otherwise the TOML placeholder is used.
+    Scenarios cover three price levels (current baseload and +/- `price_level_band`
+    around it, a stated assumption in the TOML), so the P50/P10 statistics and CVaR
+    include price-level risk.
     """
     prices, is_synthetic = store.load_prices(zone)
     zone_solar = store.load_zone_solar(zone)
-    sc, fallback = build_scenarios_same_year(prices, zone_solar, store.load_site_profile(zone), capacity_mw)
-    offers, premium_pct, fee_pct = _read_offers(sc, float(sc.gen.mean()))
     with open(EXAMPLE_DIR / "assumptions.toml", "rb") as f:
-        market = Market(**tomllib.load(f))
+        assumptions = tomllib.load(f)
+    band = assumptions.pop("price_level_band")  # not a Market field
+    market = Market(**assumptions)
+    sc, fallback = build_scenarios_same_year(
+        prices, zone_solar, store.load_site_profile(zone), capacity_mw,
+        level_factors=(1 - band, 1.0, 1 + band),
+    )
+    offers, premium_pct, fee_pct = _read_offers(sc, float(sc.gen.mean()))
     imbalance = store.load_imbalance(zone)
     source = "placeholder"
     if imbalance is not None:
