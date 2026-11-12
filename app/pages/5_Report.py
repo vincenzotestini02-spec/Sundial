@@ -22,7 +22,8 @@ lang = "it" if choice == "Italiano" else "en"
 rec = common.get_recommendation(zone)
 summary = common.get_home_yearly(zone)
 pdf = build_report(rec, summary, zone, lang, case.is_synthetic,
-                   offer=common.offer_by_name(case.offers, rec.offer))
+                   offer=common.offer_by_name(case.offers, rec.offer),
+                   avg_mw=float(case.scenarios.gen.mean()))
 st.download_button(
     "Download PDF", data=pdf, file_name=f"sundial-report-{lang}.pdf", mime="application/pdf",
 )

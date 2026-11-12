@@ -13,12 +13,14 @@ A Python package and Streamlit app that values Italian renewable power purchase 
 **The customer's question:** a 20 MW solar park in Puglia (zone SUD) has received three PPA offers. Which one should it sign, for how much of its production, and what is a fair price? The sidebar region selector re-runs the whole analysis for any of the 20 Italian regions (7 bidding zones), each with its own prices, solar shape, imbalance cost and representative site.
 
 **Headline on real ENTSO-E data (zone SUD, Foggia site):**
-Sign offer B for 100% of production. Fair pay-as-produced price range 81.7 to 120.9 EUR/MWh. Recommendation robust in 87% of weightings. Merchant break-even of offer B: 142.1 EUR/MWh, just above its 140.7 EUR/MWh price, so B gives up about 0.4% of expected value (28.96 vs 29.08 M EUR NPV) to lift the average of the worst 10% of scenarios from 18.7 to 22.1 M EUR.
+Sign offer B, a 1.7 MW baseload block (about 50% of average output), for the full contracted volume. Fair pay-as-produced price range 81.7 to 120.9 EUR/MWh. Recommendation robust in 87% of weightings. Merchant break-even of offer B: 142.1 EUR/MWh, just above its 140.7 EUR/MWh price, so B gives up about 0.4% of expected value (28.96 vs 29.08 M EUR NPV) to lift the average of the worst 10% of scenarios from 18.7 to 22.1 M EUR.
 
 Offer B is a 7-year baseload block (1.67 MW, half of average output) at 95% of the trailing 12-month baseload price, indexed at 2% a year, A-rated buyer, GoOs included, imbalance stays with the seller. The bank-style hedge target (worst-10% NPV at least 85% of the expected merchant NPV) is not reachable with these offers in any zone, so the recommendation hedges as much as the offers allow (76% in SUD). See the one-page term sheet: [English](docs/term-sheet-en.md), [Italiano](docs/term-sheet-it.md).
 
 > **Status:** real ENTSO-E day-ahead prices, zonal solar generation and imbalance prices for all seven zones (2021 to November 2026). Zonal solar is incomplete for Sardinia, which falls back to the PVGIS shape for 2022-2025 (see Limitations). The offers, buyers and the price-level band are assumptions, not market data.
 
+| | |
+|---|---|
 | App | _link to be added after deployment_ (Streamlit Community Cloud apps sleep when idle; wake-up takes up to about a minute) |
 | Screenshot 1: Home | _to be added_ |
 | Screenshot 2: Compare offers and robustness | _to be added_ |

@@ -173,12 +173,21 @@ def header(title: str, case: ExampleCase) -> None:
         st.info(note)
 
 
-def headline(rec: Recommendation) -> str:
-    """The one-sentence recommendation shown on Home."""
+def headline(rec: Recommendation, offer: Offer | None = None, avg_mw: float | None = None) -> str:
+    """The one-sentence recommendation shown on Home.
+
+    A baseload offer is a fixed block, so "100%" would be misleading: the text names the block
+    (MW and share of average output) and says the full contracted volume (or its share) is used.
+    """
     fair = f"Fair pay-as-produced price range {rec.fair_low:.1f}–{rec.fair_mid:.1f} €/MWh."
     robust = f"Recommendation robust in {rec.win_share * 100:.0f}% of weightings."
     if rec.share < 0.01:
         return f"Stay merchant for now; best offer if hedging: {rec.offer}. {fair} {robust}"
+    if offer is not None and offer.structure == "baseload" and offer.baseload_mw > 0 and avg_mw:
+        block = f"a {offer.baseload_mw:.1f} MW baseload block (about {offer.baseload_mw / avg_mw * 100:.0f}% of average output)"
+        volume = ("for the full contracted volume" if rec.share >= 0.995
+                  else f"for {rec.share * 100:.0f}% of the contracted volume")
+        return f"Sign offer {rec.offer} — {block} — {volume}. {fair} {robust}"
     return f"Sign offer {rec.offer} for {rec.share * 100:.0f}% of production. {fair} {robust}"
 
 

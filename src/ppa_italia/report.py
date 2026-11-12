@@ -93,11 +93,13 @@ def build_report(
     lang: Literal["it", "en"],
     is_synthetic: bool,
     offer: Offer | None = None,
+    avg_mw: float | None = None,
 ) -> bytes:
     """Build the customer PDF (at most 2 pages) and return its bytes.
 
     `offer` is the recommended Offer; when given, the risk section and the red team
-    depend on its structure, price, rating, tenor and indexation.
+    depend on its structure, price, rating, tenor and indexation. For a baseload
+    offer, `avg_mw` (average plant output) lets the text state the block as a share of output.
     """
     t = TEXT[lang]
     na = t["na"]
@@ -135,6 +137,11 @@ def build_report(
     }
     fields.update(_articles(lang, fields["share_pct"], fields["win_pct"],
                             fields["capture_rate"], fields["index_pct"]))
+    is_block = offer is not None and offer.structure == "baseload" and offer.baseload_mw > 0 and bool(avg_mw)
+    if is_block:
+        fields["block_mw"] = _fmt(offer.baseload_mw, na, 1, lang)
+        fields["block_pct"] = f"{offer.baseload_mw / avg_mw * 100:.0f}"
+        fields["volume"] = t["volume_full" if rec.share >= 0.995 else "volume_part"].format(**fields)
 
     # 1. Situation: capture-rate trend
     _heading_body(pdf, t["situation"].format(**fields))
@@ -145,11 +152,13 @@ def build_report(
     _heading_body(pdf, t["options"].format(**fields))
     _table(pdf, (t["col_offer"], t["col_share"]),
            [(name, f"{s * 100:.0f}%") for name, s in rec.multi_offer_shares.items()])
-    pdf.multi_cell(0, 5.5, t["options_single"].format(**fields), new_x="LMARGIN", new_y="NEXT")
+    single_key = "options_single_block" if is_block and rec.share >= MERCHANT_THRESHOLD else "options_single"
+    pdf.multi_cell(0, 5.5, t[single_key].format(**fields), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
     # 3. Recommendation headline + merchant break-even (distinct from the fair range)
-    key = "recommendation_merchant" if rec.share < MERCHANT_THRESHOLD else "recommendation"
+    key = "recommendation_merchant" if rec.share < MERCHANT_THRESHOLD else (
+        "recommendation_block" if is_block else "recommendation")
     _heading_body(pdf, t[key].format(**fields))
     pdf.multi_cell(0, 5.5, t["breakeven"].format(**fields), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)

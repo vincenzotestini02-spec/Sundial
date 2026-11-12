@@ -32,6 +32,17 @@ TEXT: dict[Literal["it", "en"], dict[str, str]] = {
             "risk-constrained optimisation (the recommended offer is {offer}):"
         ),
         "options_single": "Recommended offer alone ({offer}): {share_pct}% of production, the rest merchant.",
+        "options_single_block": (
+            "Recommended offer alone ({offer}): a {block_mw} MW baseload block (about {block_pct}% of "
+            "average production), {volume}; production above the block stays at spot."
+        ),
+        "recommendation_block": (
+            "Recommendation\n"
+            "Sign offer {offer}, a {block_mw} MW baseload block (about {block_pct}% of average "
+            "production), {volume}. Fair pay-as-produced price range: {fair_low}-{fair_mid} EUR/MWh."
+        ),
+        "volume_full": "for the full contracted volume",
+        "volume_part": "for {share_pct}% of the contracted volume",
         "col_offer": "Offer",
         "col_share": "Share of production",
         "recommendation": (
@@ -138,6 +149,19 @@ TEXT: dict[Literal["it", "en"], dict[str, str]] = {
             "Offerta raccomandata da sola ({offer}): {il_share}{share_pct}% della produzione, il "
             "resto merchant."
         ),
+        "options_single_block": (
+            "Offerta raccomandata da sola ({offer}): un blocco baseload di {block_mw} MW (circa il "
+            "{block_pct}% della produzione media), {volume}; la produzione oltre il blocco resta al "
+            "prezzo di mercato."
+        ),
+        "recommendation_block": (
+            "Raccomandazione\n"
+            "Firmare l'offerta {offer}, un blocco baseload di {block_mw} MW (circa il {block_pct}% "
+            "della produzione media), {volume}. Intervallo di prezzo equo pay-as-produced: "
+            "{fair_low}-{fair_mid} EUR/MWh."
+        ),
+        "volume_full": "per l'intero volume contrattuale",
+        "volume_part": "per {il_share}{share_pct}% del volume contrattuale",
         "col_offer": "Offerta",
         "col_share": "Quota di produzione",
         "recommendation": (

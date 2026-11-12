@@ -11,6 +11,7 @@ from streamlit.testing.v1 import AppTest
 
 from ppa_italia.data.pvgis import PvgisError
 from ppa_italia.example import load_example
+from tests.helpers import _offer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))  # so tests can import app/common.py
 from common import offers_from_editor  # noqa: E402
@@ -100,6 +101,10 @@ def test_headline_labels_fair_range_as_pay_as_produced():
     rec = Recommendation("C", 0.4, 80.0, 85.0, 67.0, 0.8, False, {"C": 0.4}, False, 0.0)
     assert "Fair pay-as-produced price range 80.0–85.0 €/MWh." in headline(rec)
     assert headline(rec).startswith("Sign offer C")
+    block = _offer(name="B", structure="baseload", baseload_mw=1.67)
+    text = headline(Recommendation("B", 1.0, 80.0, 85.0, 67.0, 0.8, False, {"B": 1.0}, False, 0.0), block, 3.35)
+    assert text.startswith("Sign offer B") and "1.7 MW baseload block (about 50% of average output)" in text
+    assert "full contracted volume" in text and "100% of production" not in text
     assert "(floor level)" in breakeven_line(rec, "floor")
     assert "(floor level)" not in breakeven_line(rec, "pap")
 

@@ -62,6 +62,19 @@ FLOOR = _offer(name="C", structure="floor", price=64.0, floor_premium=4.0, tenor
 PAP = _offer(name="A", structure="pap", price=88.0, tenor_years=10, indexation_pct=0.02, rating="BBB")
 
 
+BLOCK = _offer(name="B", structure="baseload", price=140.7, tenor_years=7, indexation_pct=0.02,
+               rating="A", baseload_mw=1.67)
+
+
+def test_baseload_report_names_the_block_not_100_percent():
+    rec = Recommendation("B", 1.0, 81.7, 120.9, 142.1, 0.87, False, {"B": 1.0}, False, 0.0)
+    _, en = _text(build_report(rec, SUMMARY, "SUD", "en", False, offer=BLOCK, avg_mw=3.35))
+    assert "a 1.7 MW baseload block (about 50% of average production), for the full contracted volume" in en
+    assert "100% of production" not in en
+    _, it = _text(build_report(rec, SUMMARY, "SUD", "it", False, offer=BLOCK, avg_mw=3.35))
+    assert "blocco baseload di 1,7 MW (circa il 50% della produzione media), per l'intero volume contrattuale" in it
+
+
 def test_floor_report_is_structure_aware_en():
     rec = Recommendation("C", 0.4, 85.0, 87.0, 67.2, 0.82, False, {"C": 0.4}, False, 0.0)
     pages, text = _text(build_report(rec, SUMMARY, "SUD", "en", False, offer=FLOOR))

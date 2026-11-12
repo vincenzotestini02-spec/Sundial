@@ -29,7 +29,7 @@ except Exception as err:  # never crash on the landing page
     st.error(f"The example could not be computed: {err}")
     st.stop()
 
-st.markdown(common.headline(rec))
+st.markdown(common.headline(rec, common.offer_by_name(case.offers, rec.offer), float(case.scenarios.gen.mean())))
 note = common.floor_note(case, rec)
 if note:
     st.info(note)
