@@ -6,3 +6,4 @@ data/raw/
 *.pbix.bak
 .streamlit/secrets.toml
 *.egg-info/
+docs/superpowers/
