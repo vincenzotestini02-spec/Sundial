@@ -19,16 +19,15 @@ Offer B is a 7-year baseload block (1.67 MW, half of average output) at 95% of t
 
 > **Status:** real ENTSO-E day-ahead prices, zonal solar generation and imbalance prices for all seven zones (2021 to November 2026). Zonal solar is incomplete for Sardinia, which falls back to the PVGIS shape for 2022-2025 (see Limitations). The offers, buyers and the price-level band are assumptions, not market data.
 
-| | |
-|---|---|
-| App | _link to be added after deployment_ (Streamlit Community Cloud apps sleep when idle; wake-up takes up to about a minute) |
-| Screenshot 1: Home | _to be added_ |
-| Screenshot 2: Compare offers and robustness | _to be added_ |
-| Screenshot 3 / GIF: Hedge frontier and report | _to be added_ |
+**Live app: [sundial.streamlit.app](https://sundial.streamlit.app/)** (nothing to install; Streamlit Community Cloud apps sleep when idle, so the first visit can take up to about a minute to wake up).
+
+| Home | Compare offers and robustness | Hedge frontier |
+|---|---|---|
+| ![Home: what Sundial does and how it works](docs/img/home.png) | ![Compare offers: editable offers, weights, win share across 5,000 weightings](docs/img/compare-offers.png) | ![Hedge: CVaR floor, best mix and expected value versus downside](docs/img/hedge.png) |
 
 ## How it works
 
-The chain runs in one direction so that Home, the report and the term sheet agree:
+The chain runs in one direction so that the pages, the report and the term sheet agree:
 
 1. **Structures and credit** give each offer an expected revenue, a P10 (downside) revenue and an expected credit loss.
 2. **Tender scoring** ranks the offers on those and on contract terms; its winner is the recommended offer. A Dirichlet weight-perturbation test reports how often it still wins.
@@ -52,7 +51,7 @@ Package `src/ppa_italia/`:
 | `recommend.py` | the single recommendation |
 | `report.py`, `report_text.py` | two-page customer PDF in Italian and English |
 
-Streamlit app (`app/`): Home, Asset value, Compare offers, Hedge, Backtest and checks, Report. The Puglia example (zone SUD) is pre-loaded on every page, so the app works with no input; the footer shows the data source and period from `manifest.json`. Models and their limits: [docs/methodology.md](docs/methodology.md).
+Streamlit app (`app/`): Home, Asset value, Compare offers, Hedge, Backtest and checks, Report. Home explains what the tool does and how it works; the analysis pages open on the Puglia example (zone SUD), so the app works with no input; the footer shows the data source and period from `manifest.json`. Models and their limits: [docs/methodology.md](docs/methodology.md).
 
 **CBS Energy Economics minor: where it shows**
 
