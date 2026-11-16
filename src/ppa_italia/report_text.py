@@ -12,11 +12,11 @@ from __future__ import annotations
 from typing import Literal
 
 DISCLAIMER_EN = "Indicative, educational, built on public data. Not trading advice and not any company's pricing."
-SYNTHETIC_LABEL = "SYNTHETIC — placeholder until ENTSO-E data"
+SYNTHETIC_LABEL = "SYNTHETIC: placeholder until ENTSO-E data"
 
 TEXT: dict[Literal["it", "en"], dict[str, str]] = {
     "en": {
-        "title": "PPA assessment — zone {zone}",
+        "title": "PPA assessment: zone {zone}",
         "disclaimer": DISCLAIMER_EN,
         "sources": "Sources: ENTSO-E Transparency Platform; PVGIS © European Union.",
         "synthetic_banner": SYNTHETIC_LABEL,
@@ -126,7 +126,7 @@ TEXT: dict[Literal["it", "en"], dict[str, str]] = {
         "na": "n/a",
     },
     "it": {
-        "title": "Valutazione PPA — zona {zone}",
+        "title": "Valutazione PPA: zona {zone}",
         "sources": "Fonti: ENTSO-E Transparency Platform; PVGIS © European Union.",
         "disclaimer": (
             "Indicativo, a scopo educativo, basato su dati pubblici. Non è consulenza di trading "

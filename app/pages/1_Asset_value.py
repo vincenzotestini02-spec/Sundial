@@ -72,9 +72,13 @@ with st.sidebar:
     if not has_wind:
         st.caption("Wind is not available for this zone yet: its profile needs real ENTSO-E data.")
     mw = st.number_input("Capacity (MW)", min_value=0.1, value=case.capacity_mw, step=1.0, key="mw")
-    if st.session_state.get("_site_zone") != zone:  # new region: reset the coordinates to its zone site
+    # New region, or widget state dropped by a page change: reset the coordinates to the zone site.
+    # Otherwise re-assign them so a custom site survives navigation (as region_selector does).
+    if st.session_state.get("_site_zone") != zone or "lat" not in st.session_state or "lon" not in st.session_state:
         st.session_state["lat"], st.session_state["lon"] = site_lat, site_lon
         st.session_state["_site_zone"] = zone
+    else:
+        st.session_state["lat"], st.session_state["lon"] = st.session_state["lat"], st.session_state["lon"]
     lat = st.number_input("Latitude", min_value=-90.0, max_value=90.0, format="%.2f", key="lat")
     lon = st.number_input("Longitude", min_value=-180.0, max_value=180.0, format="%.2f", key="lon")
 

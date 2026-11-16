@@ -21,15 +21,15 @@ from ppa_italia.zones import REGION_TO_ZONE, ZONE_SITE, zone_of
 from ppa_italia.value import yearly_summary
 
 DISCLAIMER = "Indicative, educational, built on public data. Not trading advice and not any company's pricing."
-SYNTHETIC_LABEL = "SYNTHETIC — placeholder until ENTSO-E data"
+SYNTHETIC_LABEL = "SYNTHETIC: placeholder until ENTSO-E data"
 TYPICAL_YEAR_NOTE = "Capture rates use a typical (median) weather year applied to every price year."
 SOURCES = "Sources: PVGIS © European Union; ENTSO-E Transparency Platform."
 DEFAULT_REGION = "Puglia"
 IMBALANCE_NOTE = "Imbalance cost is a placeholder assumption: no imbalance prices are available for this zone."
 EXAMPLE_OFFERS = EXAMPLE_DIR / "offers.csv"
 DOCS = Path(__file__).resolve().parents[1] / "docs"
-TERM_SHEETS = {"Term sheet — Puglia example (zone SUD), EN": DOCS / "term-sheet-en.md",
-               "Term sheet — Puglia example (zone SUD), IT": DOCS / "term-sheet-it.md"}
+TERM_SHEETS = {"Term sheet: Puglia example (zone SUD), EN": DOCS / "term-sheet-en.md",
+               "Term sheet: Puglia example (zone SUD), IT": DOCS / "term-sheet-it.md"}
 STATIC_DOC_ZONE = "SUD"  # the term sheets and benchmarks were written for the Puglia (SUD) example
 SOURCE_LABELS = {"file-library": "File Library", "api": "ENTSO-E API"}
 
@@ -115,7 +115,7 @@ def load_case_or_stop(zone: str) -> ExampleCase:
 
 def footer_text(manifest: dict | None, zone: str, is_synthetic: bool = False) -> str:
     """Footer line: human source label, the zone's own price-file range and the build date."""
-    suffix = " — prices for this region: synthetic placeholder" if is_synthetic else ""
+    suffix = " (prices for this region are a synthetic placeholder)" if is_synthetic else ""
     if not manifest:
         return "Data source: unknown (no manifest)" + suffix
     source = manifest.get("source", "?")
@@ -191,7 +191,7 @@ def headline(rec: Recommendation, offer: Offer | None = None, avg_mw: float | No
     A baseload offer is a fixed block, so "100%" would be misleading: the text names the block
     (MW and share of average output) and says the full contracted volume (or its share) is used.
     """
-    fair = f"Fair pay-as-produced price range {rec.fair_low:.1f}–{rec.fair_mid:.1f} €/MWh."
+    fair = f"Fair pay-as-produced price range {rec.fair_low:.1f} to {rec.fair_mid:.1f} €/MWh."
     robust = f"Recommendation robust in {rec.win_share * 100:.0f}% of weightings."
     if rec.share < 0.01:
         return f"Stay merchant for now; best offer if hedging: {rec.offer}. {fair} {robust}"
@@ -199,7 +199,7 @@ def headline(rec: Recommendation, offer: Offer | None = None, avg_mw: float | No
         block = f"a {offer.baseload_mw:.1f} MW baseload block (about {offer.baseload_mw / avg_mw * 100:.0f}% of average output)"
         volume = ("for the full contracted volume" if rec.share >= 0.995
                   else f"for {rec.share * 100:.0f}% of the contracted volume")
-        return f"Sign offer {rec.offer} — {block} — {volume}. {fair} {robust}"
+        return f"Sign offer {rec.offer}: {block}, {volume}. {fair} {robust}"
     return f"Sign offer {rec.offer} for {rec.share * 100:.0f}% of production. {fair} {robust}"
 
 
@@ -223,13 +223,14 @@ def static_doc_caption(zone: str, what: str) -> str | None:
             f"This region's numbers (zone {zone}) are in the headline and the PDF report.")
 
 
-def term_sheet_expanders(zone: str = STATIC_DOC_ZONE) -> None:
+def term_sheet_expanders(zone: str = STATIC_DOC_ZONE, side_by_side: bool = False) -> None:
     """Render the EN and IT one-page term sheets from docs/ in two expanders (Puglia example, flagged for other zones)."""
     note = static_doc_caption(zone, "term sheet")
     if note:
         st.caption(note)
-    for label, path in TERM_SHEETS.items():
-        with st.expander(label):
+    slots = st.columns(len(TERM_SHEETS)) if side_by_side else [st.container() for _ in TERM_SHEETS]
+    for slot, (label, path) in zip(slots, TERM_SHEETS.items()):
+        with slot.expander(label):
             st.markdown(path.read_text(encoding="utf-8"))
 
 

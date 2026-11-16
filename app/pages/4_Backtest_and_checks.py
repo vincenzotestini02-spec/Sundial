@@ -39,11 +39,11 @@ yield_kwh_kwp = float(energy.mean()) * 1000 / (case.capacity_mw * 1000)
 ok = YIELD_RANGE[0] <= yield_kwh_kwp <= YIELD_RANGE[1]
 st.markdown(
     f"{'✅' if ok else '❌'} Specific yield {yield_kwh_kwp:,.0f} kWh/kWp per year "
-    f"(expected {YIELD_RANGE[0]:,}–{YIELD_RANGE[1]:,})."
+    f"(expected {YIELD_RANGE[0]:,} to {YIELD_RANGE[1]:,})."
 )
 
 st.subheader("Fair pay-as-produced price range versus benchmarks")
-st.markdown(f"Fair pay-as-produced price range of this model: {rec.fair_low:.1f}–{rec.fair_mid:.1f} €/MWh.")
+st.markdown(f"Fair pay-as-produced price range of this model: {rec.fair_low:.1f} to {rec.fair_mid:.1f} €/MWh.")
 prefix = "The synthetic fair range" if case.is_synthetic else "The fair range"
 st.caption(f"{prefix} is not comparable with the LevelTen figure below: different "
            "price data, contract structure and percentile.")

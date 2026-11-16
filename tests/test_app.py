@@ -27,14 +27,21 @@ def test_page_runs_on_default_example(page):
     assert any("Not trading advice" in m.value for m in at.caption)
 
 
-def test_home_shows_headline():
+HOME_SECTIONS = ["What Sundial does", "How it works", "Explore the app", "Data"]
+
+
+def test_home_explains_the_app_in_sections_without_the_example():
     at = AppTest.from_file(str(ROOT / "app" / "Home.py"), default_timeout=60).run()
-    assert any(m.value.startswith(("Sign offer", "Stay merchant")) for m in at.markdown)
+    assert not at.exception
+    assert [s.value for s in at.subheader] == HOME_SECTIONS
+    text = " ".join(m.value for m in [*at.markdown, *at.caption, *at.main.metric])
+    assert "Sign offer" not in text and "Puglia" not in text and "Recommendation:" not in text
+    assert len(at.expander) == 0  # the Puglia term sheets live on the Report page
 
 
 def test_synthetic_banner_is_info_not_warning():
     at = AppTest.from_file(str(ROOT / "app" / "Home.py"), default_timeout=60).run()
-    assert any("SYNTHETIC — placeholder until ENTSO-E data" in m.value for m in at.info)
+    assert any("SYNTHETIC: placeholder until ENTSO-E data" in m.value for m in at.info)
     assert len(at.warning) == 0
 
 
@@ -56,6 +63,18 @@ def test_asset_page_falls_back_when_pvgis_fails(monkeypatch):
     assert len(at.warning) == 0  # default site never calls PVGIS
     at.number_input(key="lat").set_value(45.0).run()  # non-default site -> PVGIS is called
     assert not at.exception and len(at.warning) >= 1
+
+
+def test_asset_page_restores_site_after_navigation(monkeypatch):
+    """Coming back to the page drops the lat/lon widget state; it must return to the zone site, not (-90, -180)."""
+    calls = []
+    monkeypatch.setattr("ppa_italia.data.pvgis.fetch_hourly_pv", lambda *a, **k: calls.append(a) or (_ for _ in ()).throw(PvgisError("down")))
+    at = AppTest.from_file(str(ROOT / "app" / "pages" / "1_Asset_value.py"), default_timeout=60)
+    at.session_state["_site_zone"] = "SUD"  # marker survives navigation, widget keys "lat"/"lon" do not
+    at.run()
+    assert not at.exception
+    assert at.number_input(key="lat").value > 30 and at.number_input(key="lon").value > 5
+    assert calls == [] and len(at.warning) == 0
 
 
 def test_offers_from_editor_rejects_empty_cells():
@@ -99,7 +118,7 @@ def test_headline_labels_fair_range_as_pay_as_produced():
     from common import breakeven_line, headline
     from ppa_italia.recommend import Recommendation
     rec = Recommendation("C", 0.4, 80.0, 85.0, 67.0, 0.8, False, {"C": 0.4}, False, 0.0)
-    assert "Fair pay-as-produced price range 80.0–85.0 €/MWh." in headline(rec)
+    assert "Fair pay-as-produced price range 80.0 to 85.0 €/MWh." in headline(rec)
     assert headline(rec).startswith("Sign offer C")
     block = _offer(name="B", structure="baseload", baseload_mw=1.67)
     text = headline(Recommendation("B", 1.0, 80.0, 85.0, 67.0, 0.8, False, {"B": 1.0}, False, 0.0), block, 3.35)
@@ -109,26 +128,21 @@ def test_headline_labels_fair_range_as_pay_as_produced():
     assert "(floor level)" not in breakeven_line(rec, "pap")
 
 
-def test_home_headline_on_page_says_pay_as_produced():
-    at = AppTest.from_file(str(ROOT / "app" / "Home.py"), default_timeout=60).run()
-    assert any("pay-as-produced price range" in m.value for m in at.markdown)
-
-
 def test_offers_from_editor_rejects_duplicate_names():
     df = pd.DataFrame([OFFER_ROW, OFFER_ROW])
     offers, errors = offers_from_editor(df)
     assert len(offers) == 1 and errors == [f"Row 2 ({OFFER_ROW['name']}): duplicate name"]
 
 
-@pytest.mark.parametrize("page", ["Home.py", "pages/5_Report.py"])
+@pytest.mark.parametrize("page", ["pages/5_Report.py"])
 def test_term_sheet_expanders(page):
     at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=60).run()
     labels = [e.label for e in at.expander]
-    assert "Term sheet — Puglia example (zone SUD), EN" in labels
-    assert "Term sheet — Puglia example (zone SUD), IT" in labels
+    assert "Term sheet: Puglia example (zone SUD), EN" in labels
+    assert "Term sheet: Puglia example (zone SUD), IT" in labels
 
 
-@pytest.mark.parametrize("page", ["Home.py", "pages/5_Report.py", "pages/4_Backtest_and_checks.py"])
+@pytest.mark.parametrize("page", ["pages/5_Report.py", "pages/4_Backtest_and_checks.py"])
 def test_static_documents_flagged_outside_sud(page, data_copy):
     at = AppTest.from_file(str(ROOT / "app" / page), default_timeout=120).run()
     assert not any("Puglia worked example" in c.value for c in at.caption)  # SUD: no flag
